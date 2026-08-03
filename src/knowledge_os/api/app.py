@@ -1,9 +1,13 @@
+from pathlib import Path
+
 import structlog
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from knowledge_os import __version__
 from knowledge_os.adapters.persistence.database import get_engine
+from knowledge_os.api.knowledge_routes import chat_router, knowledge_router
 from knowledge_os.api.middleware import RateLimitMiddleware, TraceContextMiddleware
 from knowledge_os.api.routes import router
 from knowledge_os.config import get_settings
@@ -14,8 +18,8 @@ logger = structlog.get_logger()
 def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(
-        title="Knowledge OS — Platform Kernel",
-        description="Phase 0: Tenancy, Agent Registry, Events, Audit",
+        title="Knowledge OS",
+        description="Knowledge Operating System — Phase 1: Upload → Ask → Cite",
         version=__version__,
         docs_url="/docs",
         redoc_url="/redoc",
@@ -24,6 +28,12 @@ def create_app() -> FastAPI:
     app.add_middleware(RateLimitMiddleware)
     app.add_middleware(TraceContextMiddleware)
     app.include_router(router, prefix="/api/v1")
+    app.include_router(knowledge_router, prefix="/api/v1")
+    app.include_router(chat_router, prefix="/api/v1")
+
+    web_dir = Path(__file__).resolve().parents[3] / "web"
+    if web_dir.exists():
+        app.mount("/ui", StaticFiles(directory=str(web_dir), html=True), name="web")
 
     @app.get("/health", tags=["system"])
     async def health():

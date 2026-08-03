@@ -12,7 +12,7 @@ COPY schemas ./schemas
 COPY alembic.ini ./
 COPY migrations ./migrations
 COPY scripts ./scripts
-COPY examples ./examples
+COPY web ./web
 
 RUN pip install --no-cache-dir -e ".[dev]"
 

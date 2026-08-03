@@ -2,7 +2,7 @@
 
 A multi-tenant **Knowledge Operating System** — the platform kernel for trustworthy AI mentors and knowledge applications.
 
-> **Phase 0** delivers the platform kernel: tenancy, agent registry, event bus, audit trail, and API gateway foundations.
+> **Phase 1** delivers the walking skeleton: upload PDF → ask question → answer with citations and trust vector.
 
 ## Architecture
 
@@ -10,7 +10,7 @@ A multi-tenant **Knowledge Operating System** — the platform kernel for trustw
 Platform → Organization → Workspace → Agent → Knowledge → User
 ```
 
-Phase 0 implements the first four levels plus audit and events. Knowledge ingestion arrives in Phase 1.
+Phase 1 adds knowledge ingestion, vector retrieval, session orchestration, and a linear query pipeline (upload → ask → cite).
 
 ### Platform Planes (Phase 0 scope)
 
@@ -49,6 +49,7 @@ docker compose exec api python scripts/seed_phase0.py
 ```
 
 API available at: http://localhost:8000  
+Web UI: http://localhost:8000/ui  
 OpenAPI docs: http://localhost:8000/docs
 
 ### Local Development
@@ -75,7 +76,11 @@ uvicorn knowledge_os.api.app:app --reload
 | `POST /api/v1/organizations` | Create organization |
 | `POST /api/v1/organizations/{id}/workspaces` | Create workspace |
 | `POST /api/v1/users` | Register user |
-| `POST /api/v1/workspaces/{id}/agents` | Register agent (schema v2.0) |
+| `POST /api/v1/workspaces/{id}/knowledge/upload` | Upload PDF/text knowledge |
+| `GET /api/v1/workspaces/{id}/knowledge/assets` | List uploaded documents |
+| `POST /api/v1/workspaces/{id}/sessions` | Create chat session |
+| `POST /api/v1/workspaces/{id}/sessions/{sid}/query` | Ask question (returns citations + trust) |
+| `POST /api/v1/workspaces/{id}/agents` | Register agent (schema v2.1) |
 | `GET /api/v1/audit/trace/{trace_id}` | Query audit by trace |
 
 All requests support `X-Trace-Id`. Authenticated requests use `Authorization: Bearer <token>`.
@@ -106,8 +111,8 @@ pytest
 
 | Phase | Focus |
 |-------|-------|
-| **0** (current) | Platform kernel — tenancy, agents, events, audit |
-| **1** | Walking skeleton — upload → ask → cite |
+| **0** | Platform kernel — tenancy, agents, events, audit |
+| **1** (current) | Walking skeleton — upload → ask → cite |
 | **2** | Knowledge fabric — immutable ingestion, platform public layer |
 | **3** | Inference runtime — trust pipeline, EvidencePackets |
 | **4** | Agentic mesh — independently deployable nodes |

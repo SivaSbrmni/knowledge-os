@@ -16,10 +16,16 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     rate_limit_requests_per_minute: int = 120
     agent_schema_path: str = "schemas/agent-schema-v2.1.json"
+    storage_root: str = "data/uploads"
+    use_dev_embeddings: bool = True
 
     @property
     def is_development(self) -> bool:
         return self.environment == "development"
+
+    @property
+    def storage_path(self) -> Path:
+        return Path(self.storage_root)
 
 
 @lru_cache

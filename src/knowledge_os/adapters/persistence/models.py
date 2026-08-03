@@ -165,3 +165,74 @@ class ProviderCredentialModel(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
+
+
+class KnowledgeAssetModel(Base):
+    __tablename__ = "knowledge_assets"
+    __table_args__ = (Index("ix_knowledge_assets_workspace_id", "workspace_id"),)
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    workspace_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("workspaces.id"), nullable=False
+    )
+    filename: Mapped[str] = mapped_column(String(512), nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    storage_path: Mapped[str] = mapped_column(String(1024), nullable=False)
+    mime_type: Mapped[str] = mapped_column(String(128), nullable=False)
+    page_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="processing")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+    chunks: Mapped[list["KnowledgeChunkModel"]] = relationship(back_populates="asset")
+
+
+class KnowledgeChunkModel(Base):
+    __tablename__ = "knowledge_chunks"
+    __table_args__ = (
+        Index("ix_knowledge_chunks_workspace_id", "workspace_id"),
+        Index("ix_knowledge_chunks_asset_id", "asset_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    asset_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("knowledge_assets.id"), nullable=False
+    )
+    workspace_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("workspaces.id"), nullable=False
+    )
+    chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    page: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    section: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    token_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+    asset: Mapped[KnowledgeAssetModel] = relationship(back_populates="chunks")
+    embedding: Mapped["ChunkEmbeddingModel | None"] = relationship(
+        back_populates="chunk", uselist=False
+    )
+
+
+class ChunkEmbeddingModel(Base):
+    __tablename__ = "chunk_embeddings"
+    __table_args__ = (Index("ix_chunk_embeddings_workspace_id", "workspace_id"),)
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    chunk_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("knowledge_chunks.id"), nullable=False, unique=True
+    )
+    workspace_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("workspaces.id"), nullable=False
+    )
+    model_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    dimensions: Mapped[int] = mapped_column(Integer, nullable=False)
+    embedding: Mapped[list] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+    chunk: Mapped[KnowledgeChunkModel] = relationship(back_populates="embedding")

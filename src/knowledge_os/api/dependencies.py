@@ -5,22 +5,32 @@ from fastapi import Depends, Header, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from knowledge_os.adapters.auth.jwt_provider import JWTAuthProvider
+from knowledge_os.adapters.ingestion.embedder import dev_embed
+from knowledge_os.adapters.knowledge.tenant_provider import TenantKnowledgeProvider
 from knowledge_os.adapters.llm.credential_store import PostgresCredentialStore
 from knowledge_os.adapters.llm.gateway import AgentLLMGateway
 from knowledge_os.adapters.messaging.event_bus import InMemoryEventBus, RedisEventBus
 from knowledge_os.adapters.persistence.database import get_db_session
+from knowledge_os.adapters.persistence.knowledge_repositories import (
+    PostgresKnowledgeRepository,
+    PostgresVectorStore,
+)
 from knowledge_os.adapters.persistence.repositories import (
     PostgresAgentRepository,
     PostgresAuditStore,
     PostgresTenantRepository,
 )
+from knowledge_os.adapters.session.redis_store import RedisSessionStore
 from knowledge_os.api.context import RequestContext
 from knowledge_os.config import get_settings
 from knowledge_os.ports.llm import LLMGateway
 from knowledge_os.ports.repositories import EventBus
 from knowledge_os.schemas.agent_validator import AgentSchemaValidator
 from knowledge_os.services.credentials import CredentialService
+from knowledge_os.services.ingestion import IngestionService
+from knowledge_os.services.orchestrator import SessionOrchestrator
 from knowledge_os.services.platform import AgentRegistryService, TenantService
+from knowledge_os.services.query_pipeline import QueryPipeline
 
 _auth_provider = JWTAuthProvider()
 _event_bus: EventBus | None = None
@@ -147,3 +157,43 @@ async def get_llm_gateway(
 
 def get_auth_provider() -> JWTAuthProvider:
     return _auth_provider
+
+
+async def get_ingestion_service(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    event_bus: Annotated[EventBus, Depends(get_event_bus)],
+    llm_gateway: Annotated[LLMGateway, Depends(get_llm_gateway)],
+) -> IngestionService:
+    settings = get_settings()
+    return IngestionService(
+        knowledge_repo=PostgresKnowledgeRepository(session),
+        vector_store=PostgresVectorStore(session),
+        llm_gateway=llm_gateway if not settings.use_dev_embeddings else None,
+        event_bus=event_bus,
+        storage_root=settings.storage_path,
+        use_dev_embeddings=settings.use_dev_embeddings,
+    )
+
+
+async def get_orchestrator(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    llm_gateway: Annotated[LLMGateway, Depends(get_llm_gateway)],
+) -> SessionOrchestrator:
+    settings = get_settings()
+    knowledge_repo = PostgresKnowledgeRepository(session)
+    vector_store = PostgresVectorStore(session)
+
+    async def embed_fn(text: str) -> list[float]:
+        return dev_embed(text)
+
+    provider = TenantKnowledgeProvider(knowledge_repo, vector_store, embed_fn)
+    pipeline = QueryPipeline(
+        provider=provider,
+        llm_gateway=llm_gateway if not settings.use_dev_embeddings else None,
+    )
+    session_store = RedisSessionStore(settings.redis_url)
+    return SessionOrchestrator(
+        session_store=session_store,
+        agent_repo=PostgresAgentRepository(session),
+        query_pipeline=pipeline,
+    )
