@@ -2,10 +2,14 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
-class KnowledgeAssetResponse(BaseModel):
+class APIModel(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+
+class KnowledgeAssetResponse(APIModel):
     id: UUID
     workspace_id: UUID
     filename: str
@@ -19,7 +23,7 @@ class KnowledgeAssetResponse(BaseModel):
     created_at: datetime
 
 
-class GraphEdgeResponse(BaseModel):
+class GraphEdgeResponse(APIModel):
     id: UUID
     source_id: UUID
     source_type: str
@@ -29,7 +33,7 @@ class GraphEdgeResponse(BaseModel):
     metadata: dict[str, Any]
 
 
-class DerivedArtifactResponse(BaseModel):
+class DerivedArtifactResponse(APIModel):
     id: UUID
     source_asset_id: UUID
     artifact_type: str
@@ -43,7 +47,7 @@ class SessionCreateRequest(BaseModel):
     agent_id: str
 
 
-class SessionResponse(BaseModel):
+class SessionResponse(APIModel):
     session_id: UUID
     workspace_id: UUID
     agent_id: str
@@ -53,7 +57,7 @@ class QueryRequest(BaseModel):
     question: str = Field(min_length=1, max_length=4000)
 
 
-class TrustVectorResponse(BaseModel):
+class TrustVectorResponse(APIModel):
     source_trust: float
     retrieval_trust: float
     reasoning_trust: float
@@ -63,7 +67,7 @@ class TrustVectorResponse(BaseModel):
     explanation: str
 
 
-class CitationResponse(BaseModel):
+class CitationResponse(APIModel):
     claim_id: str
     chunk_id: str
     document_id: str
@@ -72,7 +76,7 @@ class CitationResponse(BaseModel):
     confidence: float
 
 
-class QueryResponse(BaseModel):
+class QueryResponse(APIModel):
     answer: str
     withheld: bool
     trust: TrustVectorResponse

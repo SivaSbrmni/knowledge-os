@@ -2,7 +2,11 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
+
+
+class APIModel(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
 
 
 class OrganizationCreate(BaseModel):
@@ -10,7 +14,7 @@ class OrganizationCreate(BaseModel):
     slug: str = Field(min_length=2, max_length=128, pattern=r"^[a-z0-9-]+$")
 
 
-class OrganizationResponse(BaseModel):
+class OrganizationResponse(APIModel):
     id: UUID
     name: str
     slug: str
@@ -23,7 +27,7 @@ class WorkspaceCreate(BaseModel):
     slug: str = Field(min_length=2, max_length=128, pattern=r"^[a-z0-9-]+$")
 
 
-class WorkspaceResponse(BaseModel):
+class WorkspaceResponse(APIModel):
     id: UUID
     organization_id: UUID
     name: str
@@ -37,7 +41,7 @@ class UserCreate(BaseModel):
     display_name: str = Field(min_length=1, max_length=255)
 
 
-class UserResponse(BaseModel):
+class UserResponse(APIModel):
     id: UUID
     email: str
     display_name: str
@@ -50,7 +54,7 @@ class WorkspaceMemberCreate(BaseModel):
     role: str
 
 
-class WorkspaceMemberResponse(BaseModel):
+class WorkspaceMemberResponse(APIModel):
     id: UUID
     workspace_id: UUID
     user_id: UUID
@@ -63,7 +67,7 @@ class AgentRegisterRequest(BaseModel):
     activate: bool = True
 
 
-class AgentVersionResponse(BaseModel):
+class AgentVersionResponse(APIModel):
     id: UUID
     agent_id: str
     workspace_id: UUID
@@ -75,7 +79,7 @@ class AgentVersionResponse(BaseModel):
     created_at: datetime
 
 
-class AuditRecordResponse(BaseModel):
+class AuditRecordResponse(APIModel):
     id: UUID
     trace_id: str
     actor_id: UUID | None
@@ -108,7 +112,7 @@ class CredentialCreate(BaseModel):
     description: str = ""
 
 
-class CredentialResponse(BaseModel):
+class CredentialResponse(APIModel):
     id: UUID
     workspace_id: UUID
     credential_ref: str

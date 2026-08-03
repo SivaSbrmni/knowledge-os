@@ -39,14 +39,19 @@ _auth_provider = JWTAuthProvider()
 _event_bus: EventBus | None = None
 
 
+def reset_event_bus_cache() -> None:
+    global _event_bus
+    _event_bus = None
+
+
 def get_event_bus() -> EventBus:
     global _event_bus
-    if _event_bus is None:
-        settings = get_settings()
-        if settings.environment in {"test", "testing"}:
+    settings = get_settings()
+    if settings.environment in {"test", "testing"}:
+        if _event_bus is None or not isinstance(_event_bus, InMemoryEventBus):
             _event_bus = InMemoryEventBus()
-        else:
-            _event_bus = RedisEventBus(settings.redis_url)
+    elif _event_bus is None or isinstance(_event_bus, InMemoryEventBus):
+        _event_bus = RedisEventBus(settings.redis_url)
     return _event_bus
 
 
@@ -198,6 +203,7 @@ async def get_orchestrator(
         vector_store,
         embed_fn,
         platform_workspace_id=UUID(settings.platform_workspace_id),
+        use_dev_embeddings=settings.use_dev_embeddings,
     )
     pipeline = QueryPipeline(
         provider=provider,
