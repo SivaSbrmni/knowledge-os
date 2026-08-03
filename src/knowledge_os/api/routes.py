@@ -11,6 +11,8 @@ from knowledge_os.api.dependencies import (
     get_agent_service,
     get_audit_store,
     get_auth_provider,
+    get_credential_service,
+    get_llm_gateway,
     get_request_context,
     get_tenant_service,
     require_roles,
@@ -19,8 +21,11 @@ from knowledge_os.api.schemas import (
     AgentRegisterRequest,
     AgentVersionResponse,
     AuditRecordResponse,
+    CredentialCreate,
+    CredentialResponse,
     DevTokenRequest,
     DevTokenResponse,
+    LLMPolicyValidateResponse,
     OrganizationCreate,
     OrganizationResponse,
     UserCreate,
@@ -32,7 +37,10 @@ from knowledge_os.api.schemas import (
 )
 from knowledge_os.config import get_settings
 from knowledge_os.domain.enums import Role
+from knowledge_os.ports.llm import LLMGateway
 from knowledge_os.schemas.agent_validator import AgentSchemaValidationError
+from knowledge_os.schemas.llm_policy import parse_llm_policy
+from knowledge_os.services.credentials import CredentialService
 from knowledge_os.services.platform import AgentRegistryService, TenantService
 
 router = APIRouter()
@@ -241,3 +249,93 @@ async def get_audit_by_tenant(
 ):
     records = await audit_store.query_by_tenant(tenant_id, limit=limit, offset=offset)
     return [AuditRecordResponse.model_validate(r) for r in records]
+
+
+@router.post(
+    "/workspaces/{workspace_id}/credentials",
+    response_model=CredentialResponse,
+    status_code=201,
+)
+async def store_credential(
+    workspace_id: UUID,
+    body: CredentialCreate,
+    ctx: Annotated[RequestContext, Depends(require_roles(Role.WORKSPACE_ADMIN.value))],
+    service: Annotated[CredentialService, Depends(get_credential_service)],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+):
+    workspace = await PostgresTenantRepository(session).get_workspace(workspace_id)
+    if workspace is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    cred = await service.store_credential(
+        workspace_id,
+        body.credential_ref,
+        body.provider,
+        body.auth_type,
+        body.secret,
+        body.description,
+        actor_id=ctx.user_id,
+        trace_id=ctx.trace_id,
+        tenant_id=workspace.organization_id,
+    )
+    await session.commit()
+    return CredentialResponse(
+        id=cred.id,
+        workspace_id=cred.workspace_id,
+        credential_ref=cred.credential_ref,
+        provider=cred.provider,
+        auth_type=cred.auth_type,
+        description=cred.description,
+        is_active=cred.is_active,
+        created_by=cred.created_by,
+    )
+
+
+@router.get(
+    "/workspaces/{workspace_id}/credentials",
+    response_model=list[CredentialResponse],
+)
+async def list_credentials(
+    workspace_id: UUID,
+    ctx: Annotated[RequestContext, Depends(require_roles(Role.WORKSPACE_ADMIN.value))],
+    service: Annotated[CredentialService, Depends(get_credential_service)],
+):
+    creds = await service.list_credentials(workspace_id)
+    return [
+        CredentialResponse(
+            id=c.id,
+            workspace_id=c.workspace_id,
+            credential_ref=c.credential_ref,
+            provider=c.provider,
+            auth_type=c.auth_type,
+            description=c.description,
+            is_active=c.is_active,
+            created_by=c.created_by,
+        )
+        for c in creds
+    ]
+
+
+@router.post(
+    "/workspaces/{workspace_id}/agents/validate-llm-policy",
+    response_model=LLMPolicyValidateResponse,
+)
+async def validate_llm_policy(
+    workspace_id: UUID,
+    body: AgentRegisterRequest,
+    ctx: Annotated[RequestContext, Depends(require_roles(Role.WORKSPACE_ADMIN.value, Role.MENTOR.value))],
+    gateway: Annotated[LLMGateway, Depends(get_llm_gateway)],
+):
+    config = {**body.config, "workspace_id": str(workspace_id)}
+    try:
+        from knowledge_os.schemas.agent_validator import AgentSchemaValidator
+
+        validated = AgentSchemaValidator().validate(config)
+        if validated.get("schema_version") != "2.1":
+            return LLMPolicyValidateResponse(valid=False, errors=["llm_policy requires schema_version 2.1"])
+        policy = parse_llm_policy(validated)
+        errors = await gateway.validate_policy(policy, workspace_id)
+        return LLMPolicyValidateResponse(valid=len(errors) == 0, errors=errors)
+    except AgentSchemaValidationError as exc:
+        return LLMPolicyValidateResponse(valid=False, errors=exc.errors)
+    except ValueError as exc:
+        return LLMPolicyValidateResponse(valid=False, errors=[str(exc)])

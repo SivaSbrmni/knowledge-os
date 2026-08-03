@@ -1,5 +1,5 @@
 {
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "agent_id": "upsc-mentor-v1",
   "tenant_id": "00000000-0000-0000-0000-000000000001",
   "workspace_id": "00000000-0000-0000-0000-000000000002",
@@ -36,9 +36,69 @@
     "allowed_tools": ["quiz_generator", "mind_map", "flashcard", "teaching_plan"],
     "web_search": "conditional"
   },
-  "model_policy": {
-    "preferred_model": "gpt-4o",
-    "fallback_models": ["claude-3-5-sonnet", "gemini-1.5-pro"],
-    "embedding_model": "text-embedding-3-large"
+  "llm_policy": {
+    "require_open_source": true,
+    "inference": {
+      "primary": {
+        "provider": "together",
+        "auth_type": "api_key",
+        "credential_ref": "together-prod",
+        "model": {
+          "model_id": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+          "model_family": "llama",
+          "open_source": true,
+          "license": "llama3.3",
+          "context_window": 131072
+        },
+        "parameters": {
+          "temperature": 0.2,
+          "max_tokens": 4096,
+          "top_p": 0.9
+        }
+      },
+      "fallbacks": [
+        {
+          "provider": "groq",
+          "auth_type": "api_key",
+          "credential_ref": "groq-prod",
+          "model": {
+            "model_id": "llama-3.3-70b-versatile",
+            "model_family": "llama",
+            "open_source": true,
+            "license": "llama3.3"
+          },
+          "parameters": {
+            "temperature": 0.2,
+            "max_tokens": 4096
+          }
+        },
+        {
+          "provider": "ollama",
+          "auth_type": "none",
+          "base_url": "http://localhost:11434/v1",
+          "model": {
+            "model_id": "llama3.3",
+            "model_family": "llama",
+            "open_source": true,
+            "license": "llama3.3"
+          },
+          "parameters": {
+            "temperature": 0.2,
+            "max_tokens": 4096
+          }
+        }
+      ]
+    },
+    "embedding": {
+      "provider": "huggingface",
+      "auth_type": "personal_access_token",
+      "credential_ref": "huggingface-prod",
+      "model": {
+        "model_id": "BAAI/bge-large-en-v1.5",
+        "model_family": "other",
+        "open_source": true,
+        "license": "mit"
+      }
+    }
   }
 }

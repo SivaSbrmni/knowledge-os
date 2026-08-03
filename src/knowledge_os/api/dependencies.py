@@ -5,6 +5,8 @@ from fastapi import Depends, Header, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from knowledge_os.adapters.auth.jwt_provider import JWTAuthProvider
+from knowledge_os.adapters.llm.credential_store import PostgresCredentialStore
+from knowledge_os.adapters.llm.gateway import AgentLLMGateway
 from knowledge_os.adapters.messaging.event_bus import InMemoryEventBus, RedisEventBus
 from knowledge_os.adapters.persistence.database import get_db_session
 from knowledge_os.adapters.persistence.repositories import (
@@ -14,8 +16,10 @@ from knowledge_os.adapters.persistence.repositories import (
 )
 from knowledge_os.api.context import RequestContext
 from knowledge_os.config import get_settings
+from knowledge_os.ports.llm import LLMGateway
 from knowledge_os.ports.repositories import EventBus
 from knowledge_os.schemas.agent_validator import AgentSchemaValidator
+from knowledge_os.services.credentials import CredentialService
 from knowledge_os.services.platform import AgentRegistryService, TenantService
 
 _auth_provider = JWTAuthProvider()
@@ -120,6 +124,25 @@ async def get_audit_store(
     session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> PostgresAuditStore:
     return PostgresAuditStore(session)
+
+
+async def get_credential_service(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> CredentialService:
+    settings = get_settings()
+    return CredentialService(
+        credential_store=PostgresCredentialStore(session, settings.jwt_secret),
+        audit_store=PostgresAuditStore(session),
+    )
+
+
+async def get_llm_gateway(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> LLMGateway:
+    settings = get_settings()
+    return AgentLLMGateway(
+        credential_store=PostgresCredentialStore(session, settings.jwt_secret),
+    )
 
 
 def get_auth_provider() -> JWTAuthProvider:

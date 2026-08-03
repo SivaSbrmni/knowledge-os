@@ -8,6 +8,7 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
+    Text,
     UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -138,6 +139,29 @@ class AuditRecordModel(Base):
     resource_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     details: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class ProviderCredentialModel(Base):
+    __tablename__ = "provider_credentials"
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "credential_ref", name="uq_workspace_credential_ref"),
+        Index("ix_credentials_workspace_id", "workspace_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    workspace_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("workspaces.id"), nullable=False
+    )
+    credential_ref: Mapped[str] = mapped_column(String(64), nullable=False)
+    provider: Mapped[str] = mapped_column(String(64), nullable=False)
+    auth_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    encrypted_secret: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_by: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )

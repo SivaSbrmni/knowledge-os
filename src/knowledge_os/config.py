@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     environment: str = "development"
     log_level: str = "INFO"
     rate_limit_requests_per_minute: int = 120
-    agent_schema_path: str = "schemas/agent-schema-v2.0.json"
+    agent_schema_path: str = "schemas/agent-schema-v2.1.json"
 
     @property
     def is_development(self) -> bool:

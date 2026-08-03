@@ -100,6 +100,30 @@ class DevTokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
+class CredentialCreate(BaseModel):
+    credential_ref: str = Field(min_length=2, max_length=64, pattern=r"^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$")
+    provider: str
+    auth_type: str = Field(description="api_key | bearer_token | personal_access_token | none")
+    secret: str = Field(min_length=1, description="API key, PAT, or bearer token — stored encrypted")
+    description: str = ""
+
+
+class CredentialResponse(BaseModel):
+    id: UUID
+    workspace_id: UUID
+    credential_ref: str
+    provider: str
+    auth_type: str
+    description: str
+    is_active: bool
+    created_by: UUID | None
+
+
+class LLMPolicyValidateResponse(BaseModel):
+    valid: bool
+    errors: list[str] = Field(default_factory=list)
+
+
 class HealthResponse(BaseModel):
     status: str
     version: str
