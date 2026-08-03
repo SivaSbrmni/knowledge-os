@@ -1,0 +1,104 @@
+{
+  "schema_version": "2.1",
+  "agent_id": "upsc-mentor-v1",
+  "tenant_id": "00000000-0000-0000-0000-000000000001",
+  "workspace_id": "00000000-0000-0000-0000-000000000002",
+  "identity": {
+    "name": "UPSC Mentor",
+    "domain": "civil-services-exam",
+    "persona": "senior-ias-coach"
+  },
+  "knowledge_policy": {
+    "allowed_layers": ["platform_public", "tenant", "personal"],
+    "excluded_providers": [],
+    "freshness_requirement": "strict",
+    "authority_preference": "government_sources_first",
+    "max_evidence_age_days": 730
+  },
+  "reasoning_policy": {
+    "grounding_required": true,
+    "min_evidence_packets": 3,
+    "allow_foundation_model_recall": false,
+    "conflict_behavior": "surface_and_explain"
+  },
+  "trust_policy": {
+    "min_source_trust": 0.7,
+    "min_groundedness": 0.8,
+    "withhold_below_threshold": true,
+    "show_trust_vector": true
+  },
+  "memory_policy": {
+    "session_memory": "enabled",
+    "long_term_memory": "enabled",
+    "cross_session_retention_days": 90
+  },
+  "tool_policy": {
+    "allowed_tools": ["quiz_generator", "mind_map", "flashcard", "teaching_plan"],
+    "web_search": "conditional"
+  },
+  "llm_policy": {
+    "require_open_source": true,
+    "inference": {
+      "primary": {
+        "provider": "together",
+        "auth_type": "api_key",
+        "credential_ref": "together-prod",
+        "model": {
+          "model_id": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+          "model_family": "llama",
+          "open_source": true,
+          "license": "llama3.3",
+          "context_window": 131072
+        },
+        "parameters": {
+          "temperature": 0.2,
+          "max_tokens": 4096,
+          "top_p": 0.9
+        }
+      },
+      "fallbacks": [
+        {
+          "provider": "groq",
+          "auth_type": "api_key",
+          "credential_ref": "groq-prod",
+          "model": {
+            "model_id": "llama-3.3-70b-versatile",
+            "model_family": "llama",
+            "open_source": true,
+            "license": "llama3.3"
+          },
+          "parameters": {
+            "temperature": 0.2,
+            "max_tokens": 4096
+          }
+        },
+        {
+          "provider": "ollama",
+          "auth_type": "none",
+          "base_url": "http://localhost:11434/v1",
+          "model": {
+            "model_id": "llama3.3",
+            "model_family": "llama",
+            "open_source": true,
+            "license": "llama3.3"
+          },
+          "parameters": {
+            "temperature": 0.2,
+            "max_tokens": 4096
+          }
+        }
+      ]
+    },
+    "embedding": {
+      "provider": "huggingface",
+      "auth_type": "personal_access_token",
+      "credential_ref": "huggingface-prod",
+      "model": {
+        "model_id": "BAAI/bge-large-en-v1.5",
+        "model_family": "other",
+        "open_source": true,
+        "license": "mit"
+      }
+    }
+  }
+}

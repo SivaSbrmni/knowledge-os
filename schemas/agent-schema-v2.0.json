@@ -1,0 +1,154 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://knowledge-os.io/schemas/agent/v2.0",
+  "title": "Agent Schema",
+  "description": "Versioned agent configuration contract for Knowledge OS",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "agent_id",
+    "tenant_id",
+    "workspace_id",
+    "identity",
+    "knowledge_policy",
+    "reasoning_policy",
+    "trust_policy",
+    "memory_policy",
+    "tool_policy",
+    "model_policy"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "2.0"
+    },
+    "agent_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$"
+    },
+    "tenant_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "workspace_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "identity": {
+      "type": "object",
+      "required": ["name", "domain", "persona"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "domain": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "persona": { "type": "string", "minLength": 1, "maxLength": 128 }
+      }
+    },
+    "knowledge_policy": {
+      "type": "object",
+      "required": [
+        "allowed_layers",
+        "excluded_providers",
+        "freshness_requirement",
+        "authority_preference",
+        "max_evidence_age_days"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "allowed_layers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["foundation", "platform_public", "tenant", "personal"]
+          },
+          "minItems": 1
+        },
+        "excluded_providers": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "freshness_requirement": {
+          "type": "string",
+          "enum": ["strict", "moderate", "relaxed"]
+        },
+        "authority_preference": { "type": "string" },
+        "max_evidence_age_days": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "reasoning_policy": {
+      "type": "object",
+      "required": [
+        "grounding_required",
+        "min_evidence_packets",
+        "allow_foundation_model_recall",
+        "conflict_behavior"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "grounding_required": { "type": "boolean" },
+        "min_evidence_packets": { "type": "integer", "minimum": 0 },
+        "allow_foundation_model_recall": { "type": "boolean" },
+        "conflict_behavior": {
+          "type": "string",
+          "enum": ["surface_and_explain", "prefer_authority", "withhold"]
+        }
+      }
+    },
+    "trust_policy": {
+      "type": "object",
+      "required": [
+        "min_source_trust",
+        "min_groundedness",
+        "withhold_below_threshold",
+        "show_trust_vector"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "min_source_trust": { "type": "number", "minimum": 0, "maximum": 1 },
+        "min_groundedness": { "type": "number", "minimum": 0, "maximum": 1 },
+        "withhold_below_threshold": { "type": "boolean" },
+        "show_trust_vector": { "type": "boolean" }
+      }
+    },
+    "memory_policy": {
+      "type": "object",
+      "required": ["session_memory", "long_term_memory", "cross_session_retention_days"],
+      "additionalProperties": false,
+      "properties": {
+        "session_memory": { "type": "string", "enum": ["enabled", "disabled"] },
+        "long_term_memory": { "type": "string", "enum": ["enabled", "disabled"] },
+        "cross_session_retention_days": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "tool_policy": {
+      "type": "object",
+      "required": ["allowed_tools", "web_search"],
+      "additionalProperties": false,
+      "properties": {
+        "allowed_tools": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "web_search": {
+          "type": "string",
+          "enum": ["enabled", "disabled", "conditional"]
+        }
+      }
+    },
+    "model_policy": {
+      "type": "object",
+      "required": ["preferred_model", "fallback_models", "embedding_model"],
+      "additionalProperties": false,
+      "properties": {
+        "preferred_model": { "type": "string" },
+        "fallback_models": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "embedding_model": { "type": "string" }
+      }
+    }
+  }
+}
