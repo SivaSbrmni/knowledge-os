@@ -179,5 +179,7 @@ class KnowledgeProvider(ABC):
         top_k: int = 5,
         allowed_layers: list[str] | None = None,
         platform_workspace_id: UUID | None = None,
+        knowledge_policy: dict | None = None,
+        agent_config: dict | None = None,
     ) -> list[EvidencePacket]:
         pass

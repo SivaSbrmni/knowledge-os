@@ -46,6 +46,7 @@ class SessionOrchestrator:
             question=question,
             workspace_id=ctx.workspace_id,
             agent_config=version.config,
+            session_messages=ctx.messages,
         )
 
         ctx.messages.append({"role": "user", "content": question})

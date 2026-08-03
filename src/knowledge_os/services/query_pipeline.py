@@ -1,45 +1,45 @@
-"""Phase 1 linear query pipeline: retrieve → reason → cite → trust."""
+"""Phase 3 query pipeline: intent → retrieve → reason → cite → trust → assemble."""
 
-import re
-from uuid import UUID, uuid4
+from uuid import UUID
 
 import structlog
 
-from knowledge_os.domain.knowledge import (
-    CitedResponse,
-    EvidencePacket,
-    ReasonedClaim,
-    TrustVector,
-)
-from knowledge_os.domain.llm import ChatCompletionRequest, ChatMessage
+from knowledge_os.domain.knowledge import CitedResponse, EvidencePacket, ReasonedClaim
 from knowledge_os.ports.knowledge import KnowledgeProvider
 from knowledge_os.ports.llm import LLMGateway
-from knowledge_os.schemas.llm_policy import parse_llm_policy
+from knowledge_os.services.reasoning_agent import ReasoningAgent
+from knowledge_os.services.trust_evaluator import detect_conflicts, evaluate_trust
 
 logger = structlog.get_logger()
 
 
 class QueryPipeline:
     """
-    Fixed DAG (Phase 1 — not full mesh):
+    Fixed DAG (Phase 3 inference runtime):
     Intent → Retrieve → Reason → Cite → Trust → Assemble
     """
 
     def __init__(self, provider: KnowledgeProvider, llm_gateway: LLMGateway | None = None):
         self._provider = provider
-        self._llm_gateway = llm_gateway
+        self._reasoning = ReasoningAgent(llm_gateway)
 
     async def query(
         self,
         question: str,
         workspace_id: UUID,
         agent_config: dict,
+        session_messages: list[dict] | None = None,
     ) -> CitedResponse:
         intent = self._analyze_intent(question)
         logger.info("query_intent", intent=intent, workspace_id=str(workspace_id))
 
-        allowed_layers = agent_config.get("knowledge_policy", {}).get("allowed_layers", ["tenant"])
+        knowledge_policy = agent_config.get("knowledge_policy", {})
+        reasoning_policy = agent_config.get("reasoning_policy", {})
+        trust_policy = agent_config.get("trust_policy", {})
+
+        allowed_layers = knowledge_policy.get("allowed_layers", ["tenant"])
         from knowledge_os.config import get_settings
+
         platform_ws = UUID(get_settings().platform_workspace_id)
 
         can_answer = await self._provider.can_answer(question, workspace_id)
@@ -49,21 +49,66 @@ class QueryPipeline:
             top_k=5,
             allowed_layers=allowed_layers,
             platform_workspace_id=platform_ws,
+            knowledge_policy=knowledge_policy,
+            agent_config=agent_config,
         )
 
-        min_packets = agent_config.get("reasoning_policy", {}).get("min_evidence_packets", 1)
-        trust_policy = agent_config.get("trust_policy", {})
-
+        min_packets = reasoning_policy.get("min_evidence_packets", 1)
         if can_answer < 0.3 or len(packets) < min_packets:
             return self._withhold_response(
                 "I cannot confidently answer this — insufficient evidence in your knowledge base.",
                 packets,
                 trust_policy,
+                reasoning_policy,
             )
 
-        claims, answer = await self._reason(question, packets, workspace_id, agent_config)
+        conflicts = detect_conflicts(packets)
+        packets, conflicts = self._apply_conflict_behavior(
+            packets, conflicts, reasoning_policy.get("conflict_behavior", "surface_and_explain")
+        )
+
+        if reasoning_policy.get("conflict_behavior") == "withhold" and conflicts:
+            return self._withhold_response(
+                "I cannot confidently answer this — conflicting evidence detected.",
+                packets,
+                trust_policy,
+                reasoning_policy,
+                conflicts=conflicts,
+            )
+
+        claims, answer, llm_used = await self._reasoning.reason(
+            question,
+            packets,
+            workspace_id,
+            agent_config,
+            intent=intent,
+            session_messages=session_messages,
+        )
+
+        grounding_required = reasoning_policy.get("grounding_required", True)
+        if grounding_required and claims and not any(c.evidence_packet_ids for c in claims):
+            return self._withhold_response(
+                "I cannot confidently answer this — answer is not grounded in evidence.",
+                packets,
+                trust_policy,
+                reasoning_policy,
+                conflicts=conflicts,
+            )
+
+        if conflicts and reasoning_policy.get("conflict_behavior") == "surface_and_explain":
+            answer = self._surface_conflicts(answer, conflicts)
+
         citations = self._build_citations(claims, packets)
-        trust = self._evaluate_trust(packets, claims, trust_policy)
+        conflict_behavior = reasoning_policy.get("conflict_behavior", "surface_and_explain")
+        trust = evaluate_trust(
+            packets,
+            claims,
+            trust_policy,
+            conflicts=conflicts,
+            llm_used=llm_used,
+            grounding_required=grounding_required,
+            conflicts_block_threshold=conflict_behavior != "surface_and_explain",
+        )
 
         if trust_policy.get("withhold_below_threshold") and not trust.threshold_met:
             return CitedResponse(
@@ -73,6 +118,7 @@ class QueryPipeline:
                 citations=citations,
                 trust=trust,
                 withheld=True,
+                show_trust_vector=trust_policy.get("show_trust_vector", True),
             )
 
         return CitedResponse(
@@ -82,6 +128,7 @@ class QueryPipeline:
             citations=citations,
             trust=trust,
             withheld=False,
+            show_trust_vector=trust_policy.get("show_trust_vector", True),
         )
 
     def _analyze_intent(self, question: str) -> str:
@@ -92,84 +139,25 @@ class QueryPipeline:
             return "summarize"
         return "question"
 
-    async def _reason(
+    def _apply_conflict_behavior(
         self,
-        question: str,
         packets: list[EvidencePacket],
-        workspace_id: UUID,
-        agent_config: dict,
-    ) -> tuple[list[ReasonedClaim], str]:
-        evidence_block = "\n\n".join(
-            f"[CHUNK:{p.chunk_id}]\n{p.text}" for p in packets
+        conflicts: list[str],
+        conflict_behavior: str,
+    ) -> tuple[list[EvidencePacket], list[str]]:
+        if not conflicts:
+            return packets, conflicts
+        if conflict_behavior == "prefer_authority":
+            authoritative = [p for p in packets if p.authority_flag]
+            if authoritative:
+                return authoritative, []
+        return packets, conflicts
+
+    def _surface_conflicts(self, answer: str, conflicts: list[str]) -> str:
+        note = "Note: conflicting evidence was detected in your knowledge base.\n" + "\n".join(
+            f"- {c}" for c in conflicts
         )
-        system_prompt = (
-            "You are a knowledge-grounded mentor. Answer ONLY using the evidence below. "
-            "For every claim, reference the chunk ID in brackets like [CHUNK:uuid]. "
-            "If evidence is insufficient, say you don't know. Do not use outside knowledge."
-        )
-        user_prompt = f"Evidence:\n{evidence_block}\n\nQuestion: {question}"
-
-        if (
-            self._llm_gateway
-            and agent_config.get("schema_version") == "2.1"
-        ):
-            try:
-                policy = parse_llm_policy(agent_config)
-                response = await self._llm_gateway.chat(
-                    policy,
-                    workspace_id,
-                    ChatCompletionRequest(
-                        messages=[
-                            ChatMessage(role="system", content=system_prompt),
-                            ChatMessage(role="user", content=user_prompt),
-                        ],
-                        model_id=policy.inference_primary.model.model_id,
-                        temperature=0.2,
-                        max_tokens=2048,
-                    ),
-                )
-                answer = response.content
-            except Exception as exc:
-                logger.warning("llm_reason_fallback", error=str(exc))
-                answer = self._fallback_answer(question, packets)
-        else:
-            answer = self._fallback_answer(question, packets)
-
-        claims = self._extract_claims(answer, packets)
-        return claims, answer
-
-    def _fallback_answer(self, question: str, packets: list[EvidencePacket]) -> str:
-        if not packets:
-            return "I don't have enough information to answer that."
-        top = packets[0]
-        return (
-            f"Based on your uploaded knowledge ({top.page and f'page {top.page}, ' or ''}"
-            f"confidence {top.confidence:.0%}):\n\n{top.text[:800]}\n\n"
-            f"[CHUNK:{top.chunk_id}]"
-        )
-
-    def _extract_claims(
-        self, answer: str, packets: list[EvidencePacket]
-    ) -> list[ReasonedClaim]:
-        chunk_ids = {str(p.chunk_id) for p in packets}
-        claims: list[ReasonedClaim] = []
-        sentences = re.split(r"(?<=[.!?])\s+", answer.strip())
-        for i, sentence in enumerate(sentences):
-            if not sentence.strip():
-                continue
-            refs = re.findall(r"\[CHUNK:([a-f0-9-]{36})\]", sentence, re.I)
-            valid_refs = [r for r in refs if r in chunk_ids]
-            if not valid_refs and packets:
-                valid_refs = [str(packets[0].chunk_id)]
-            claims.append(
-                ReasonedClaim(
-                    claim_id=str(uuid4()),
-                    text=sentence.strip(),
-                    evidence_packet_ids=valid_refs,
-                    reasoning_path=["reasoning_agent"],
-                )
-            )
-        return claims
+        return f"{note}\n\n{answer}"
 
     def _build_citations(
         self, claims: list[ReasonedClaim], packets: list[EvidencePacket]
@@ -190,61 +178,29 @@ class QueryPipeline:
                     })
         return citations
 
-    def _evaluate_trust(
-        self,
-        packets: list[EvidencePacket],
-        claims: list[ReasonedClaim],
-        trust_policy: dict,
-    ) -> TrustVector:
-        min_source = trust_policy.get("min_source_trust", 0.7)
-        min_grounded = trust_policy.get("min_groundedness", 0.8)
-
-        source_trust = sum(p.confidence for p in packets) / len(packets) if packets else 0.0
-        retrieval_trust = min(1.0, len(packets) / 3.0)
-
-        grounded = 0
-        for claim in claims:
-            if claim.evidence_packet_ids:
-                grounded += 1
-        groundedness = grounded / len(claims) if claims else 0.0
-
-        reasoning_trust = 0.85 if claims else 0.0
-        overall = (source_trust + retrieval_trust + reasoning_trust + groundedness) / 4.0
-        threshold_met = (
-            source_trust >= min_source
-            and groundedness >= min_grounded
-            and len(packets) > 0
-        )
-
-        return TrustVector(
-            source_trust=round(source_trust, 3),
-            retrieval_trust=round(retrieval_trust, 3),
-            reasoning_trust=round(reasoning_trust, 3),
-            groundedness=round(groundedness, 3),
-            overall=round(overall, 3),
-            threshold_met=threshold_met,
-            explanation=(
-                f"Grounded {grounded}/{len(claims)} claims from {len(packets)} evidence packets."
-            ),
-        )
-
     def _withhold_response(
-        self, message: str, packets: list[EvidencePacket], trust_policy: dict
+        self,
+        message: str,
+        packets: list[EvidencePacket],
+        trust_policy: dict,
+        reasoning_policy: dict,
+        *,
+        conflicts: list[str] | None = None,
     ) -> CitedResponse:
-        trust = self._evaluate_trust(packets, [], trust_policy)
+        trust = evaluate_trust(
+            packets,
+            [],
+            trust_policy,
+            conflicts=conflicts,
+            llm_used=False,
+            grounding_required=reasoning_policy.get("grounding_required", True),
+        )
         return CitedResponse(
             answer=message,
             claims=[],
             evidence_packets=packets,
             citations=[],
-            trust=TrustVector(
-                source_trust=trust.source_trust,
-                retrieval_trust=trust.retrieval_trust,
-                reasoning_trust=0.0,
-                groundedness=0.0,
-                overall=0.0,
-                threshold_met=False,
-                explanation="Insufficient evidence to answer.",
-            ),
+            trust=trust,
             withheld=True,
+            show_trust_vector=trust_policy.get("show_trust_vector", True),
         )

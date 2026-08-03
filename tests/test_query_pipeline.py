@@ -50,7 +50,10 @@ async def test_query_with_evidence_returns_citations():
     ]
     pipeline = QueryPipeline(StubProvider(packets))
     agent_config = {
-        "reasoning_policy": {"min_evidence_packets": 1},
+        "reasoning_policy": {
+            "min_evidence_packets": 1,
+            "grounding_required": True,
+        },
         "trust_policy": {
             "min_source_trust": 0.5,
             "min_groundedness": 0.5,

@@ -113,8 +113,8 @@ pytest
 |-------|-------|
 | **0** | Platform kernel — tenancy, agents, events, audit |
 | **1** | Walking skeleton — upload → ask → cite |
-| **2** (current) | Knowledge fabric — immutability, graph, platform public layer |
-| **3** | Inference runtime — trust pipeline, EvidencePackets |
+| **2** | Knowledge fabric — immutability, graph, platform public layer |
+| **3** (current) | Inference runtime — trust pipeline, policy enforcement, reasoning agent |
 | **4** | Agentic mesh — independently deployable nodes |
 | **5** | Enterprise — billing, compliance, HITL |
 | **6** | Ecosystem — provider SDK, marketplace |

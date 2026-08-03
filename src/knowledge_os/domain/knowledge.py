@@ -143,3 +143,4 @@ class CitedResponse:
     citations: list[dict[str, Any]]
     trust: TrustVector
     withheld: bool
+    show_trust_vector: bool = True

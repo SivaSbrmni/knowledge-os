@@ -65,6 +65,7 @@ class TrustVectorResponse(APIModel):
     overall: float
     threshold_met: bool
     explanation: str
+    conflicts: list[str] = Field(default_factory=list)
 
 
 class CitationResponse(APIModel):
@@ -79,7 +80,7 @@ class CitationResponse(APIModel):
 class QueryResponse(APIModel):
     answer: str
     withheld: bool
-    trust: TrustVectorResponse
+    trust: TrustVectorResponse | None
     citations: list[CitationResponse]
     evidence_count: int
     session_id: UUID

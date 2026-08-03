@@ -204,10 +204,9 @@ async def query_session(
     if session_ctx.workspace_id != workspace_id:
         raise HTTPException(status_code=403, detail="Session workspace mismatch")
 
-    return QueryResponse(
-        answer=response.answer,
-        withheld=response.withheld,
-        trust=TrustVectorResponse(
+    trust_response = None
+    if response.show_trust_vector:
+        trust_response = TrustVectorResponse(
             source_trust=response.trust.source_trust,
             retrieval_trust=response.trust.retrieval_trust,
             reasoning_trust=response.trust.reasoning_trust,
@@ -215,7 +214,13 @@ async def query_session(
             overall=response.trust.overall,
             threshold_met=response.trust.threshold_met,
             explanation=response.trust.explanation,
-        ),
+            conflicts=response.trust.conflicts,
+        )
+
+    return QueryResponse(
+        answer=response.answer,
+        withheld=response.withheld,
+        trust=trust_response,
         citations=[
             CitationResponse(**c) for c in response.citations
         ],

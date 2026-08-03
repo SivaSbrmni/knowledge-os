@@ -204,6 +204,7 @@ async def get_orchestrator(
         embed_fn,
         platform_workspace_id=UUID(settings.platform_workspace_id),
         use_dev_embeddings=settings.use_dev_embeddings,
+        llm_gateway=llm_gateway if not settings.use_dev_embeddings else None,
     )
     pipeline = QueryPipeline(
         provider=provider,
