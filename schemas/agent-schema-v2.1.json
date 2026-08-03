@@ -1,0 +1,239 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://knowledge-os.io/schemas/agent/v2.1",
+  "title": "Agent Schema v2.1",
+  "description": "Agent configuration with open-source LLM policy and credential references",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "agent_id",
+    "tenant_id",
+    "workspace_id",
+    "identity",
+    "knowledge_policy",
+    "reasoning_policy",
+    "trust_policy",
+    "memory_policy",
+    "tool_policy",
+    "llm_policy"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "2.1"
+    },
+    "agent_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$"
+    },
+    "tenant_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "workspace_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "identity": {
+      "type": "object",
+      "required": ["name", "domain", "persona"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "domain": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "persona": { "type": "string", "minLength": 1, "maxLength": 128 }
+      }
+    },
+    "knowledge_policy": {
+      "type": "object",
+      "required": [
+        "allowed_layers",
+        "excluded_providers",
+        "freshness_requirement",
+        "authority_preference",
+        "max_evidence_age_days"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "allowed_layers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["foundation", "platform_public", "tenant", "personal"]
+          },
+          "minItems": 1
+        },
+        "excluded_providers": { "type": "array", "items": { "type": "string" } },
+        "freshness_requirement": {
+          "type": "string",
+          "enum": ["strict", "moderate", "relaxed"]
+        },
+        "authority_preference": { "type": "string" },
+        "max_evidence_age_days": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "reasoning_policy": {
+      "type": "object",
+      "required": [
+        "grounding_required",
+        "min_evidence_packets",
+        "allow_foundation_model_recall",
+        "conflict_behavior"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "grounding_required": { "type": "boolean" },
+        "min_evidence_packets": { "type": "integer", "minimum": 0 },
+        "allow_foundation_model_recall": { "type": "boolean" },
+        "conflict_behavior": {
+          "type": "string",
+          "enum": ["surface_and_explain", "prefer_authority", "withhold"]
+        }
+      }
+    },
+    "trust_policy": {
+      "type": "object",
+      "required": [
+        "min_source_trust",
+        "min_groundedness",
+        "withhold_below_threshold",
+        "show_trust_vector"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "min_source_trust": { "type": "number", "minimum": 0, "maximum": 1 },
+        "min_groundedness": { "type": "number", "minimum": 0, "maximum": 1 },
+        "withhold_below_threshold": { "type": "boolean" },
+        "show_trust_vector": { "type": "boolean" }
+      }
+    },
+    "memory_policy": {
+      "type": "object",
+      "required": ["session_memory", "long_term_memory", "cross_session_retention_days"],
+      "additionalProperties": false,
+      "properties": {
+        "session_memory": { "type": "string", "enum": ["enabled", "disabled"] },
+        "long_term_memory": { "type": "string", "enum": ["enabled", "disabled"] },
+        "cross_session_retention_days": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "tool_policy": {
+      "type": "object",
+      "required": ["allowed_tools", "web_search"],
+      "additionalProperties": false,
+      "properties": {
+        "allowed_tools": { "type": "array", "items": { "type": "string" } },
+        "web_search": {
+          "type": "string",
+          "enum": ["enabled", "disabled", "conditional"]
+        }
+      }
+    },
+    "llm_policy": {
+      "type": "object",
+      "description": "Open-source-first LLM routing. Tokens are NEVER stored here — use credential_ref.",
+      "required": ["inference", "embedding", "require_open_source"],
+      "additionalProperties": false,
+      "properties": {
+        "require_open_source": {
+          "type": "boolean",
+          "description": "When true, only models with open_source=true are allowed"
+        },
+        "inference": { "$ref": "#/definitions/inference_policy" },
+        "embedding": { "$ref": "#/definitions/embedding_policy" }
+      }
+    }
+  },
+  "definitions": {
+    "open_llm_provider": {
+      "type": "string",
+      "enum": [
+        "ollama",
+        "together",
+        "groq",
+        "huggingface",
+        "openrouter",
+        "replicate",
+        "fireworks",
+        "custom_openai_compatible"
+      ]
+    },
+    "auth_type": {
+      "type": "string",
+      "enum": ["api_key", "bearer_token", "personal_access_token", "none"],
+      "description": "How the provider authenticates. PAT and bearer_token are resolved from credential store."
+    },
+    "model_spec": {
+      "type": "object",
+      "required": ["model_id", "model_family", "open_source"],
+      "additionalProperties": false,
+      "properties": {
+        "model_id": {
+          "type": "string",
+          "description": "Provider-native model identifier, e.g. meta-llama/Llama-3.3-70B-Instruct-Turbo"
+        },
+        "model_family": {
+          "type": "string",
+          "enum": ["llama", "mistral", "qwen", "gemma", "phi", "deepseek", "other"]
+        },
+        "open_source": { "type": "boolean" },
+        "license": { "type": "string" },
+        "context_window": { "type": "integer", "minimum": 512 }
+      }
+    },
+    "provider_endpoint": {
+      "type": "object",
+      "required": ["provider", "auth_type", "model"],
+      "additionalProperties": false,
+      "properties": {
+        "provider": { "$ref": "#/definitions/open_llm_provider" },
+        "auth_type": { "$ref": "#/definitions/auth_type" },
+        "credential_ref": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$",
+          "description": "Reference to tenant-scoped credential in vault. Required unless auth_type is none."
+        },
+        "base_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Required for ollama and custom_openai_compatible"
+        },
+        "model": { "$ref": "#/definitions/model_spec" },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "temperature": { "type": "number", "minimum": 0, "maximum": 2 },
+            "max_tokens": { "type": "integer", "minimum": 1 },
+            "top_p": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        }
+      }
+    },
+    "inference_policy": {
+      "type": "object",
+      "required": ["primary", "fallbacks"],
+      "additionalProperties": false,
+      "properties": {
+        "primary": { "$ref": "#/definitions/provider_endpoint" },
+        "fallbacks": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/provider_endpoint" }
+        }
+      }
+    },
+    "embedding_policy": {
+      "type": "object",
+      "required": ["provider", "auth_type", "model"],
+      "additionalProperties": false,
+      "properties": {
+        "provider": { "$ref": "#/definitions/open_llm_provider" },
+        "auth_type": { "$ref": "#/definitions/auth_type" },
+        "credential_ref": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$" },
+        "base_url": { "type": "string", "format": "uri" },
+        "model": { "$ref": "#/definitions/model_spec" }
+      }
+    }
+  }
+}
