@@ -15,6 +15,8 @@ from knowledge_os.api.dependencies import (
 )
 from knowledge_os.api.knowledge_schemas import (
     CitationResponse,
+    DerivedArtifactResponse,
+    GraphEdgeResponse,
     KnowledgeAssetResponse,
     QueryRequest,
     QueryResponse,
@@ -46,6 +48,7 @@ async def upload_knowledge(
     session: Annotated[AsyncSession, Depends(get_db_session)],
     file: UploadFile = File(...),
     agent_id: str = Form(default="upsc-mentor-v1"),
+    chunk_strategy: str = Form(default="structure_aware"),
 ):
     content = await file.read()
     if len(content) > 50 * 1024 * 1024:
@@ -66,6 +69,7 @@ async def upload_knowledge(
             agent_config=agent_config,
             trace_id=ctx.trace_id,
             actor_id=ctx.user_id,
+            chunk_strategy=chunk_strategy,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -86,6 +90,75 @@ async def list_knowledge_assets(
     ctx.require_authenticated()
     assets = await ingestion.list_assets(workspace_id)
     return [KnowledgeAssetResponse.model_validate(a) for a in assets]
+
+
+@knowledge_router.get(
+    "/workspaces/{workspace_id}/knowledge/assets/{asset_id}/graph",
+    response_model=list[GraphEdgeResponse],
+)
+async def get_asset_graph(
+    workspace_id: UUID,
+    asset_id: UUID,
+    ctx: Annotated[RequestContext, Depends(get_request_context)],
+    ingestion: Annotated[IngestionService, Depends(get_ingestion_service)],
+):
+    ctx.require_authenticated()
+    edges = await ingestion.get_asset_graph(asset_id)
+    return [
+        GraphEdgeResponse(
+            id=e.id,
+            source_id=e.source_id,
+            source_type=e.source_type,
+            target_id=e.target_id,
+            target_type=e.target_type,
+            edge_type=e.edge_type,
+            metadata=e.metadata,
+        )
+        for e in edges
+    ]
+
+
+@knowledge_router.get(
+    "/workspaces/{workspace_id}/knowledge/assets/{asset_id}/artifacts",
+    response_model=list[DerivedArtifactResponse],
+)
+async def get_derived_artifacts(
+    workspace_id: UUID,
+    asset_id: UUID,
+    ctx: Annotated[RequestContext, Depends(get_request_context)],
+    ingestion: Annotated[IngestionService, Depends(get_ingestion_service)],
+):
+    ctx.require_authenticated()
+    artifacts = await ingestion.get_derived_artifacts(asset_id)
+    return [DerivedArtifactResponse.model_validate(a) for a in artifacts]
+
+
+@knowledge_router.post(
+    "/platform/knowledge/upload",
+    response_model=KnowledgeAssetResponse,
+    status_code=201,
+)
+async def upload_platform_knowledge(
+    ctx: Annotated[RequestContext, Depends(require_roles(Role.PLATFORM_ADMIN.value))],
+    ingestion: Annotated[IngestionService, Depends(get_ingestion_service)],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    file: UploadFile = File(...),
+):
+    from knowledge_os.config import get_settings
+
+    settings = get_settings()
+    platform_ws = UUID(settings.platform_workspace_id)
+    content = await file.read()
+    mime = file.content_type or "application/octet-stream"
+    asset = await ingestion.ingest_platform_public(
+        platform_workspace_id=platform_ws,
+        filename=file.filename or "platform-doc",
+        content=content,
+        mime_type=mime,
+        trace_id=ctx.trace_id,
+    )
+    await session.commit()
+    return KnowledgeAssetResponse.model_validate(asset)
 
 
 @chat_router.post(

@@ -15,7 +15,7 @@ class StubProvider:
     async def can_answer(self, question, workspace_id):
         return 0.9 if self._packets else 0.0
 
-    async def retrieve_evidence(self, question, workspace_id, top_k=5):
+    async def retrieve_evidence(self, question, workspace_id, top_k=5, **kwargs):
         return self._packets[:top_k]
 
 

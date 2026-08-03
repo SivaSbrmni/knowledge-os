@@ -38,8 +38,18 @@ class QueryPipeline:
         intent = self._analyze_intent(question)
         logger.info("query_intent", intent=intent, workspace_id=str(workspace_id))
 
+        allowed_layers = agent_config.get("knowledge_policy", {}).get("allowed_layers", ["tenant"])
+        from knowledge_os.config import get_settings
+        platform_ws = UUID(get_settings().platform_workspace_id)
+
         can_answer = await self._provider.can_answer(question, workspace_id)
-        packets = await self._provider.retrieve_evidence(question, workspace_id, top_k=5)
+        packets = await self._provider.retrieve_evidence(
+            question,
+            workspace_id,
+            top_k=5,
+            allowed_layers=allowed_layers,
+            platform_workspace_id=platform_ws,
+        )
 
         min_packets = agent_config.get("reasoning_policy", {}).get("min_evidence_packets", 1)
         trust_policy = agent_config.get("trust_policy", {})

@@ -181,6 +181,10 @@ class KnowledgeAssetModel(Base):
     mime_type: Mapped[str] = mapped_column(String(128), nullable=False)
     page_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="processing")
+    layer: Mapped[str] = mapped_column(String(32), nullable=False, default="tenant")
+    ingest_run_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), nullable=True)
+    pipeline_version: Mapped[str] = mapped_column(String(16), nullable=False, default="1.0")
+    superseded_by: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
@@ -207,6 +211,7 @@ class KnowledgeChunkModel(Base):
     page: Mapped[int | None] = mapped_column(Integer, nullable=True)
     section: Mapped[str | None] = mapped_column(String(255), nullable=True)
     token_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    layer: Mapped[str] = mapped_column(String(32), nullable=False, default="tenant")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
@@ -230,9 +235,73 @@ class ChunkEmbeddingModel(Base):
     )
     model_id: Mapped[str] = mapped_column(String(128), nullable=False)
     dimensions: Mapped[int] = mapped_column(Integer, nullable=False)
+    layer: Mapped[str] = mapped_column(String(32), nullable=False, default="tenant")
     embedding: Mapped[list] = mapped_column(JSONB, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
 
     chunk: Mapped[KnowledgeChunkModel] = relationship(back_populates="embedding")
+
+
+class IngestionRunModel(Base):
+    __tablename__ = "ingestion_runs"
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "content_hash", "pipeline_version", name="uq_ingestion_idempotency"),
+    )
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    workspace_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("workspaces.id"), nullable=False
+    )
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    pipeline_version: Mapped[str] = mapped_column(String(16), nullable=False)
+    asset_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("knowledge_assets.id"), nullable=True
+    )
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class KnowledgeGraphEdgeModel(Base):
+    __tablename__ = "knowledge_graph_edges"
+    __table_args__ = (
+        Index("ix_graph_edges_workspace", "workspace_id"),
+        Index("ix_graph_edges_source", "source_id", "edge_type"),
+    )
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    workspace_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("workspaces.id"), nullable=False
+    )
+    source_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False)
+    source_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    target_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False)
+    target_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    edge_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    edge_metadata: Mapped[dict] = mapped_column("metadata", JSONB, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class DerivedArtifactModel(Base):
+    __tablename__ = "derived_artifacts"
+    __table_args__ = (Index("ix_derived_artifacts_source", "source_asset_id"),)
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    workspace_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("workspaces.id"), nullable=False
+    )
+    source_asset_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("knowledge_assets.id"), nullable=False
+    )
+    artifact_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    content: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    layer: Mapped[str] = mapped_column(String(32), nullable=False, default="tenant")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )

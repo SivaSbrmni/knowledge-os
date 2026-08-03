@@ -26,6 +26,10 @@ class KnowledgeAsset:
     mime_type: str
     page_count: int | None
     status: str
+    layer: str
+    ingest_run_id: UUID | None
+    pipeline_version: str
+    superseded_by: UUID | None
     created_at: datetime
 
 
@@ -41,6 +45,43 @@ class KnowledgeChunk:
     page: int | None
     section: str | None
     token_count: int
+    layer: str
+    created_at: datetime
+
+
+@dataclass(frozen=True)
+class KnowledgeEdge:
+    id: UUID
+    workspace_id: UUID
+    source_id: UUID
+    source_type: str
+    target_id: UUID
+    target_type: str
+    edge_type: str
+    metadata: dict[str, Any]
+    created_at: datetime
+
+
+@dataclass(frozen=True)
+class DerivedArtifact:
+    id: UUID
+    workspace_id: UUID
+    source_asset_id: UUID
+    artifact_type: str
+    content: dict[str, Any]
+    status: str
+    layer: str
+    created_at: datetime
+
+
+@dataclass(frozen=True)
+class IngestionRun:
+    id: UUID
+    workspace_id: UUID
+    content_hash: str
+    pipeline_version: str
+    asset_id: UUID | None
+    status: str
     created_at: datetime
 
 

@@ -12,6 +12,9 @@ from knowledge_os.adapters.llm.gateway import AgentLLMGateway
 from knowledge_os.adapters.messaging.event_bus import InMemoryEventBus, RedisEventBus
 from knowledge_os.adapters.persistence.database import get_db_session
 from knowledge_os.adapters.persistence.knowledge_repositories import (
+    PostgresDerivedArtifactRepository,
+    PostgresIngestionRunRepository,
+    PostgresKnowledgeGraphRepository,
     PostgresKnowledgeRepository,
     PostgresVectorStore,
 )
@@ -168,9 +171,13 @@ async def get_ingestion_service(
     return IngestionService(
         knowledge_repo=PostgresKnowledgeRepository(session),
         vector_store=PostgresVectorStore(session),
+        graph_repo=PostgresKnowledgeGraphRepository(session),
+        run_repo=PostgresIngestionRunRepository(session),
+        artifact_repo=PostgresDerivedArtifactRepository(session),
         llm_gateway=llm_gateway if not settings.use_dev_embeddings else None,
         event_bus=event_bus,
         storage_root=settings.storage_path,
+        pipeline_version=settings.pipeline_version,
         use_dev_embeddings=settings.use_dev_embeddings,
     )
 
@@ -186,7 +193,12 @@ async def get_orchestrator(
     async def embed_fn(text: str) -> list[float]:
         return dev_embed(text)
 
-    provider = TenantKnowledgeProvider(knowledge_repo, vector_store, embed_fn)
+    provider = TenantKnowledgeProvider(
+        knowledge_repo,
+        vector_store,
+        embed_fn,
+        platform_workspace_id=UUID(settings.platform_workspace_id),
+    )
     pipeline = QueryPipeline(
         provider=provider,
         llm_gateway=llm_gateway if not settings.use_dev_embeddings else None,

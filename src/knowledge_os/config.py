@@ -3,6 +3,10 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Well-known workspace for platform-public knowledge (shared embeddings)
+PLATFORM_WORKSPACE_ID = "00000000-0000-0000-0000-000000000010"
+PIPELINE_VERSION = "2.0"
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
@@ -18,6 +22,8 @@ class Settings(BaseSettings):
     agent_schema_path: str = "schemas/agent-schema-v2.1.json"
     storage_root: str = "data/uploads"
     use_dev_embeddings: bool = True
+    platform_workspace_id: str = PLATFORM_WORKSPACE_ID
+    pipeline_version: str = PIPELINE_VERSION
 
     @property
     def is_development(self) -> bool:

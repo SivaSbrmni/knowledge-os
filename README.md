@@ -112,8 +112,8 @@ pytest
 | Phase | Focus |
 |-------|-------|
 | **0** | Platform kernel — tenancy, agents, events, audit |
-| **1** (current) | Walking skeleton — upload → ask → cite |
-| **2** | Knowledge fabric — immutable ingestion, platform public layer |
+| **1** | Walking skeleton — upload → ask → cite |
+| **2** (current) | Knowledge fabric — immutability, graph, platform public layer |
 | **3** | Inference runtime — trust pipeline, EvidencePackets |
 | **4** | Agentic mesh — independently deployable nodes |
 | **5** | Enterprise — billing, compliance, HITL |
