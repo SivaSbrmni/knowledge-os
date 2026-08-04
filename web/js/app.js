@@ -107,6 +107,16 @@ function addMessage(role, content, meta = {}) {
   if (meta.withheld) bubble.classList.add("withheld");
   bubble.innerHTML = content;
 
+  if (meta.withheld) {
+    const banner = document.createElement("div");
+    banner.className = "withheld-banner";
+    banner.innerHTML = `
+      <strong>Answer withheld</strong>
+      <span>This response did not meet confidence thresholds. It has been queued for advisor review when compliance policy requires human sign-off.</span>
+    `;
+    bubble.insertBefore(banner, bubble.firstChild);
+  }
+
   if (meta.trust) {
     const block = document.createElement("div");
     block.className = "trust-block";
@@ -114,7 +124,7 @@ function addMessage(role, content, meta = {}) {
     const low = !meta.trust.threshold_met;
     block.innerHTML = `
       <div class="trust-header">
-        <span class="trust-label">Trust vector</span>
+        <span class="trust-label">Confidence score</span>
         <span class="trust-score">${pct}%</span>
       </div>
       <div class="trust-bar">
@@ -131,9 +141,9 @@ function addMessage(role, content, meta = {}) {
     const toggle = document.createElement("button");
     toggle.type = "button";
     toggle.className = "citations-toggle";
-    toggle.innerHTML = `▸ ${meta.citations.length} source${meta.citations.length > 1 ? "s" : ""}`;
+    toggle.innerHTML = `▾ ${meta.citations.length} source${meta.citations.length > 1 ? "s" : ""}`;
     const list = document.createElement("div");
-    list.className = "citation-list";
+    list.className = "citation-list open";
 
     meta.citations.forEach((c) => {
       const card = document.createElement("div");
@@ -205,8 +215,12 @@ async function loadAssets() {
 async function connect() {
   const ws = $("#workspaceId").value.trim();
   const agent = $("#agentId").value.trim();
-  if (!ws || !agent) {
-    toast("Workspace ID and Agent ID are required.", "error");
+  if (!ws) {
+    toast("Open Workspace & access and enter the client workspace ID.", "error");
+    return;
+  }
+  if (!agent) {
+    toast("Advisor agent ID is required.", "error");
     return;
   }
 
@@ -225,7 +239,7 @@ async function connect() {
     setConnected(true, data.session_id);
     localStorage.setItem("kos_workspace", ws);
     localStorage.setItem("kos_agent", agent);
-    toast("Connected to your mentor session.", "success");
+    toast("Advisory session started.", "success");
     await loadAssets();
   } catch (err) {
     toast(`Connection failed: ${err.message}`, "error");
@@ -238,11 +252,21 @@ async function connect() {
 
 async function uploadFile(file) {
   const ws = $("#workspaceId").value.trim();
-  if (!file) return;
+  if (!file || !ws) {
+    toast("Set workspace ID in Workspace & access before uploading.", "error");
+    return;
+  }
 
   const fd = new FormData();
   fd.append("file", file);
   fd.append("agent_id", $("#agentId").value.trim());
+
+  const progress = $("#uploadProgress");
+  const progressBar = $("#uploadProgressBar");
+  const progressLabel = $("#uploadProgressLabel");
+  progress.classList.remove("hidden");
+  progressBar.style.width = "30%";
+  progressLabel.textContent = `Uploading ${file.name}…`;
 
   $("#uploadBtn").disabled = true;
   try {
@@ -251,15 +275,20 @@ async function uploadFile(file) {
       headers: headers(false),
       body: fd,
     });
+    progressBar.style.width = "100%";
     if (!res.ok) throw new Error(await res.text());
     await loadAssets();
-    addMessage("assistant", `Indexed <strong>${escapeHtml(file.name)}</strong> into your knowledge base.`);
-    toast(`${file.name} uploaded successfully.`, "success");
+    addMessage("assistant", `Indexed <strong>${escapeHtml(file.name)}</strong> into the document library.`);
+    toast(`${file.name} indexed successfully.`, "success");
   } catch (err) {
     toast(`Upload failed: ${err.message}`, "error");
   } finally {
     $("#uploadBtn").disabled = false;
     $("#fileInput").value = "";
+    setTimeout(() => {
+      progress.classList.add("hidden");
+      progressBar.style.width = "0%";
+    }, 600);
   }
 }
 

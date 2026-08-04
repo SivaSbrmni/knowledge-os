@@ -1,12 +1,14 @@
 from pathlib import Path
 
 import structlog
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from knowledge_os import __version__
 from knowledge_os.adapters.persistence.database import get_engine
+from knowledge_os.api.compliance_routes import compliance_router
 from knowledge_os.api.knowledge_routes import chat_router, knowledge_router
 from knowledge_os.api.middleware import RateLimitMiddleware, TraceContextMiddleware
 from knowledge_os.api.routes import router
@@ -30,6 +32,14 @@ def create_app() -> FastAPI:
     app.include_router(router, prefix="/api/v1")
     app.include_router(knowledge_router, prefix="/api/v1")
     app.include_router(chat_router, prefix="/api/v1")
+    app.include_router(compliance_router, prefix="/api/v1")
+
+    @app.exception_handler(PermissionError)
+    async def permission_error_handler(_request: Request, exc: PermissionError):
+        return JSONResponse(
+            status_code=401,
+            content={"detail": str(exc) or "Authentication required"},
+        )
 
     web_dir = Path(__file__).resolve().parents[3] / "web"
     if web_dir.exists():

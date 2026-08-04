@@ -30,6 +30,10 @@ class Settings(BaseSettings):
         return self.environment == "development"
 
     @property
+    def is_production(self) -> bool:
+        return self.environment == "production"
+
+    @property
     def storage_path(self) -> Path:
         return Path(self.storage_root)
 

@@ -287,6 +287,56 @@ class KnowledgeGraphEdgeModel(Base):
     )
 
 
+class ReviewQueueModel(Base):
+    __tablename__ = "review_queue"
+    __table_args__ = (Index("ix_review_queue_workspace_status", "workspace_id", "status"),)
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    workspace_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("workspaces.id"), nullable=False
+    )
+    session_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False)
+    requester_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+    question: Mapped[str] = mapped_column(Text, nullable=False)
+    proposed_answer: Mapped[str] = mapped_column(Text, nullable=False)
+    trust_snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    citations: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
+    reviewer_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+    reviewer_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    trace_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class UsageEventModel(Base):
+    __tablename__ = "usage_events"
+    __table_args__ = (Index("ix_usage_events_workspace_time", "workspace_id", "occurred_at"),)
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    organization_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("organizations.id"), nullable=True
+    )
+    workspace_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("workspaces.id"), nullable=False
+    )
+    actor_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    units: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    event_metadata: Mapped[dict] = mapped_column("metadata", JSONB, nullable=False, default=dict)
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
 class DerivedArtifactModel(Base):
     __tablename__ = "derived_artifacts"
     __table_args__ = (Index("ix_derived_artifacts_source", "source_asset_id"),)

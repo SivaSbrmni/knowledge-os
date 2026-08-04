@@ -16,6 +16,7 @@ from knowledge_os.api.dependencies import (
     get_request_context,
     get_tenant_service,
     require_roles,
+    require_workspace_access,
 )
 from knowledge_os.api.schemas import (
     AgentRegisterRequest,
@@ -40,6 +41,7 @@ from knowledge_os.domain.enums import Role
 from knowledge_os.ports.llm import LLMGateway
 from knowledge_os.schemas.agent_validator import AgentSchemaValidationError
 from knowledge_os.schemas.llm_policy import parse_llm_policy
+from knowledge_os.services.authorization import WORKSPACE_WRITE_ROLES
 from knowledge_os.services.credentials import CredentialService
 from knowledge_os.services.platform import AgentRegistryService, TenantService
 
@@ -139,7 +141,10 @@ async def register_user(
 async def add_workspace_member(
     workspace_id: UUID,
     body: WorkspaceMemberCreate,
-    ctx: Annotated[RequestContext, Depends(require_roles(Role.WORKSPACE_ADMIN.value, Role.ORG_ADMIN.value))],
+    ctx: Annotated[
+        RequestContext,
+        Depends(require_workspace_access(Role.WORKSPACE_ADMIN.value, Role.ORG_ADMIN.value)),
+    ],
     service: Annotated[TenantService, Depends(get_tenant_service)],
     session: Annotated[AsyncSession, Depends(get_db_session)],
 ):
@@ -161,7 +166,7 @@ async def add_workspace_member(
 async def register_agent(
     workspace_id: UUID,
     body: AgentRegisterRequest,
-    ctx: Annotated[RequestContext, Depends(require_roles(Role.WORKSPACE_ADMIN.value, Role.MENTOR.value))],
+    ctx: Annotated[RequestContext, Depends(require_workspace_access(*WORKSPACE_WRITE_ROLES))],
     service: Annotated[AgentRegistryService, Depends(get_agent_service)],
     session: Annotated[AsyncSession, Depends(get_db_session)],
 ):
@@ -182,7 +187,7 @@ async def register_agent(
 async def get_active_agent(
     workspace_id: UUID,
     agent_id: str,
-    ctx: Annotated[RequestContext, Depends(get_request_context)],
+    ctx: Annotated[RequestContext, Depends(require_workspace_access())],
     service: Annotated[AgentRegistryService, Depends(get_agent_service)],
 ):
     ctx.require_authenticated()
@@ -199,7 +204,7 @@ async def get_active_agent(
 async def list_agent_versions(
     workspace_id: UUID,
     agent_id: str,
-    ctx: Annotated[RequestContext, Depends(get_request_context)],
+    ctx: Annotated[RequestContext, Depends(require_workspace_access())],
     service: Annotated[AgentRegistryService, Depends(get_agent_service)],
 ):
     ctx.require_authenticated()
@@ -215,7 +220,10 @@ async def activate_agent_version(
     workspace_id: UUID,
     agent_id: str,
     version: int,
-    ctx: Annotated[RequestContext, Depends(require_roles(Role.WORKSPACE_ADMIN.value))],
+    ctx: Annotated[
+        RequestContext,
+        Depends(require_workspace_access(Role.WORKSPACE_ADMIN.value)),
+    ],
     service: Annotated[AgentRegistryService, Depends(get_agent_service)],
     session: Annotated[AsyncSession, Depends(get_db_session)],
 ):
@@ -259,7 +267,10 @@ async def get_audit_by_tenant(
 async def store_credential(
     workspace_id: UUID,
     body: CredentialCreate,
-    ctx: Annotated[RequestContext, Depends(require_roles(Role.WORKSPACE_ADMIN.value))],
+    ctx: Annotated[
+        RequestContext,
+        Depends(require_workspace_access(Role.WORKSPACE_ADMIN.value)),
+    ],
     service: Annotated[CredentialService, Depends(get_credential_service)],
     session: Annotated[AsyncSession, Depends(get_db_session)],
 ):
@@ -296,7 +307,10 @@ async def store_credential(
 )
 async def list_credentials(
     workspace_id: UUID,
-    ctx: Annotated[RequestContext, Depends(require_roles(Role.WORKSPACE_ADMIN.value))],
+    ctx: Annotated[
+        RequestContext,
+        Depends(require_workspace_access(Role.WORKSPACE_ADMIN.value)),
+    ],
     service: Annotated[CredentialService, Depends(get_credential_service)],
 ):
     creds = await service.list_credentials(workspace_id)
@@ -322,7 +336,7 @@ async def list_credentials(
 async def validate_llm_policy(
     workspace_id: UUID,
     body: AgentRegisterRequest,
-    ctx: Annotated[RequestContext, Depends(require_roles(Role.WORKSPACE_ADMIN.value, Role.MENTOR.value))],
+    ctx: Annotated[RequestContext, Depends(require_workspace_access(*WORKSPACE_WRITE_ROLES))],
     gateway: Annotated[LLMGateway, Depends(get_llm_gateway)],
 ):
     config = {**body.config, "workspace_id": str(workspace_id)}

@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Knowledge OS — Trustworthy AI mentor with cited answers from your documents." />
-  <title>Knowledge OS · Mentor</title>
+  <meta name="description" content="Knowledge OS — Evidence-grounded portfolio intelligence for wealth managers." />
+  <title>Knowledge OS · Portfolio Intelligence</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -24,7 +24,7 @@
         </div>
         <div class="brand-text">
           <h1>Knowledge OS</h1>
-          <p>UPSC Mentor · Evidence-grounded answers</p>
+          <p>Portfolio Intelligence · Cited, auditable answers</p>
         </div>
       </div>
       <div class="session-pill" id="sessionPill">
@@ -37,27 +37,18 @@
       <aside class="sidebar" id="sidebar">
         <div class="panel">
           <div class="panel-header">
-            <span class="panel-title">Workspace</span>
+            <span class="panel-title">Client workspace</span>
           </div>
           <div class="field">
-            <label for="workspaceId">Workspace ID</label>
-            <input id="workspaceId" class="input-mono" type="text" placeholder="00000000-0000-0000-0000-000000000000" autocomplete="off" />
+            <label for="agentId">Advisor agent</label>
+            <input id="agentId" type="text" value="wealth-advisor-v1" placeholder="wealth-advisor-v1" />
           </div>
-          <div class="field">
-            <label for="agentId">Agent</label>
-            <input id="agentId" type="text" value="upsc-mentor-v1" />
-          </div>
-          <div class="field">
-            <label for="token">Access token</label>
-            <input id="token" type="password" placeholder="Paste JWT bearer token" autocomplete="off" />
-            <span class="field-hint">Dev: issue via /api/v1/auth/dev-token</span>
-          </div>
-          <button type="button" class="btn btn-primary btn-block" id="connectBtn">Connect</button>
+          <button type="button" class="btn btn-primary btn-block" id="connectBtn">Start advisory session</button>
         </div>
 
         <div class="panel">
           <div class="panel-header">
-            <span class="panel-title">Knowledge</span>
+            <span class="panel-title">Document library</span>
           </div>
           <div class="upload-zone" id="uploadZone" role="button" tabindex="0" aria-label="Upload document">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
@@ -65,28 +56,40 @@
               <polyline points="17 8 12 3 7 8"/>
               <line x1="12" y1="3" x2="12" y2="15"/>
             </svg>
-            <p>Drop PDF or text here</p>
+            <p>Drop client documents here</p>
             <span>PDF, TXT, MD · max 50MB</span>
             <input type="file" id="fileInput" accept=".pdf,.txt,.md" />
+          </div>
+          <div class="upload-progress hidden" id="uploadProgress" aria-live="polite">
+            <div class="upload-progress-bar" id="uploadProgressBar"></div>
+            <span class="upload-progress-label" id="uploadProgressLabel">Uploading…</span>
           </div>
           <button type="button" class="btn btn-ghost btn-block btn-sm" id="uploadBtn" style="margin-top: 0.75rem">Upload selected file</button>
         </div>
 
         <div class="panel">
           <div class="panel-header">
-            <span class="panel-title">Your documents</span>
+            <span class="panel-title">Indexed documents</span>
           </div>
           <div class="doc-list" id="docList">
-            <div class="empty-docs">Connect to see your library.</div>
+            <div class="empty-docs">Connect to view the document library.</div>
           </div>
         </div>
 
         <div class="panel">
           <button type="button" class="accordion-toggle" id="advancedToggle" aria-expanded="false">
-            Developer settings
+            Workspace &amp; access
             <span aria-hidden="true">▸</span>
           </button>
           <div class="accordion-body" id="advancedBody">
+            <div class="field">
+              <label for="workspaceId">Workspace ID</label>
+              <input id="workspaceId" class="input-mono" type="text" placeholder="Client workspace UUID" autocomplete="off" />
+            </div>
+            <div class="field">
+              <label for="token">Access token</label>
+              <input id="token" type="password" placeholder="Bearer token" autocomplete="off" />
+            </div>
             <div class="field">
               <label for="apiBase">API base URL</label>
               <input id="apiBase" type="text" value="/api/v1" class="input-mono" />
@@ -95,7 +98,7 @@
         </div>
       </aside>
 
-      <section class="chat-area" aria-label="Chat">
+      <section class="chat-area" aria-label="Advisory chat">
         <div class="messages" id="messages">
           <div class="welcome-state" id="welcomeState">
             <div class="welcome-icon" aria-hidden="true">
@@ -104,12 +107,12 @@
                 <path d="M5 19h14"/>
               </svg>
             </div>
-            <h2>Ask with evidence</h2>
-            <p>Upload your study material, connect your workspace, and get answers grounded in your documents—with citations and trust scores.</p>
+            <h2>Evidence-backed portfolio insights</h2>
+            <p>Upload client statements, policy documents, and research. Every answer cites source material with a confidence score suitable for wealth advisory workflows.</p>
             <div class="suggestion-chips">
-              <button type="button" class="chip" data-q="How is the President of India elected?">President election</button>
-              <button type="button" class="chip" data-q="Explain Article 54 in simple terms.">Article 54</button>
-              <button type="button" class="chip" data-q="Summarize the key points from my uploaded documents.">Summarize docs</button>
+              <button type="button" class="chip" data-q="Summarize risk exposure across uploaded portfolio documents.">Risk exposure summary</button>
+              <button type="button" class="chip" data-q="What compliance considerations apply to this client's allocation?">Compliance check</button>
+              <button type="button" class="chip" data-q="List key holdings and concentrations from uploaded statements.">Holdings overview</button>
             </div>
           </div>
         </div>
@@ -119,7 +122,7 @@
             <textarea
               id="question"
               rows="1"
-              placeholder="Ask about your knowledge base…"
+              placeholder="Ask about client documents or portfolio policy…"
               aria-label="Your question"
               disabled
             ></textarea>
@@ -129,6 +132,13 @@
           </div>
           <p class="composer-hint">Enter to send · Shift+Enter for new line</p>
         </div>
+
+        <footer class="compliance-footer" role="contentinfo">
+          <p>
+            <strong>Advisory disclaimer:</strong> Responses are generated from uploaded documents and do not constitute investment advice.
+            Verify all material facts against primary sources. Low-confidence answers may be withheld pending human review.
+          </p>
+        </footer>
       </section>
     </div>
   </div>

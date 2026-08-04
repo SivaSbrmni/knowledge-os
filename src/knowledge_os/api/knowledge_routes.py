@@ -5,13 +5,18 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from knowledge_os.adapters.persistence.database import get_db_session
+from knowledge_os.adapters.persistence.repositories import PostgresAuditStore
 from knowledge_os.api.context import RequestContext
 from knowledge_os.api.dependencies import (
     get_agent_service,
+    get_audit_store,
+    get_hitl_service,
     get_ingestion_service,
     get_orchestrator,
     get_request_context,
+    get_usage_metering_service,
     require_roles,
+    require_workspace_access,
 )
 from knowledge_os.api.knowledge_schemas import (
     CitationResponse,
@@ -25,9 +30,13 @@ from knowledge_os.api.knowledge_schemas import (
     TrustVectorResponse,
 )
 from knowledge_os.domain.enums import Role
+from knowledge_os.services.audit_helper import append_audit
+from knowledge_os.services.authorization import WORKSPACE_WRITE_ROLES
+from knowledge_os.services.hitl import HITLService
 from knowledge_os.services.ingestion import IngestionService
 from knowledge_os.services.orchestrator import SessionOrchestrator
 from knowledge_os.services.platform import AgentRegistryService
+from knowledge_os.services.usage_metering import UsageMeteringService
 
 knowledge_router = APIRouter(tags=["knowledge"])
 chat_router = APIRouter(tags=["chat"])
@@ -40,11 +49,11 @@ chat_router = APIRouter(tags=["chat"])
 )
 async def upload_knowledge(
     workspace_id: UUID,
-    ctx: Annotated[RequestContext, Depends(require_roles(
-        Role.WORKSPACE_ADMIN.value, Role.MENTOR.value, Role.LEARNER.value
-    ))],
+    ctx: Annotated[RequestContext, Depends(require_workspace_access(*WORKSPACE_WRITE_ROLES))],
     ingestion: Annotated[IngestionService, Depends(get_ingestion_service)],
     agent_service: Annotated[AgentRegistryService, Depends(get_agent_service)],
+    audit_store: Annotated[PostgresAuditStore, Depends(get_audit_store)],
+    metering: Annotated[UsageMeteringService, Depends(get_usage_metering_service)],
     session: Annotated[AsyncSession, Depends(get_db_session)],
     file: UploadFile = File(...),
     agent_id: str = Form(default="upsc-mentor-v1"),
@@ -74,6 +83,29 @@ async def upload_knowledge(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    await append_audit(
+        audit_store,
+        trace_id=ctx.trace_id,
+        actor_id=ctx.user_id,
+        tenant_id=ctx.tenant_id,
+        workspace_id=workspace_id,
+        action="knowledge.asset.uploaded",
+        resource_type="knowledge_asset",
+        resource_id=str(asset.id),
+        details={
+            "filename": file.filename,
+            "mime_type": mime,
+            "content_bytes": len(content),
+            "agent_id": agent_id,
+        },
+    )
+    await metering.record(
+        workspace_id=workspace_id,
+        event_type="knowledge.upload",
+        units=1,
+        actor_id=ctx.user_id,
+        metadata={"asset_id": str(asset.id), "filename": file.filename},
+    )
     await session.commit()
     return KnowledgeAssetResponse.model_validate(asset)
 
@@ -84,10 +116,9 @@ async def upload_knowledge(
 )
 async def list_knowledge_assets(
     workspace_id: UUID,
-    ctx: Annotated[RequestContext, Depends(get_request_context)],
+    ctx: Annotated[RequestContext, Depends(require_workspace_access())],
     ingestion: Annotated[IngestionService, Depends(get_ingestion_service)],
 ):
-    ctx.require_authenticated()
     assets = await ingestion.list_assets(workspace_id)
     return [KnowledgeAssetResponse.model_validate(a) for a in assets]
 
@@ -99,10 +130,9 @@ async def list_knowledge_assets(
 async def get_asset_graph(
     workspace_id: UUID,
     asset_id: UUID,
-    ctx: Annotated[RequestContext, Depends(get_request_context)],
+    ctx: Annotated[RequestContext, Depends(require_workspace_access())],
     ingestion: Annotated[IngestionService, Depends(get_ingestion_service)],
 ):
-    ctx.require_authenticated()
     edges = await ingestion.get_asset_graph(asset_id)
     return [
         GraphEdgeResponse(
@@ -125,10 +155,9 @@ async def get_asset_graph(
 async def get_derived_artifacts(
     workspace_id: UUID,
     asset_id: UUID,
-    ctx: Annotated[RequestContext, Depends(get_request_context)],
+    ctx: Annotated[RequestContext, Depends(require_workspace_access())],
     ingestion: Annotated[IngestionService, Depends(get_ingestion_service)],
 ):
-    ctx.require_authenticated()
     artifacts = await ingestion.get_derived_artifacts(asset_id)
     return [DerivedArtifactResponse.model_validate(a) for a in artifacts]
 
@@ -169,12 +198,12 @@ async def upload_platform_knowledge(
 async def create_session(
     workspace_id: UUID,
     body: SessionCreateRequest,
-    ctx: Annotated[RequestContext, Depends(get_request_context)],
+    ctx: Annotated[RequestContext, Depends(require_workspace_access())],
     orchestrator: Annotated[SessionOrchestrator, Depends(get_orchestrator)],
 ):
-    ctx.require_authenticated()
+    user_id = ctx.require_authenticated()
     try:
-        session_ctx = await orchestrator.create_session(workspace_id, body.agent_id)
+        session_ctx = await orchestrator.create_session(workspace_id, body.agent_id, user_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return SessionResponse(
@@ -192,17 +221,78 @@ async def query_session(
     workspace_id: UUID,
     session_id: UUID,
     body: QueryRequest,
-    ctx: Annotated[RequestContext, Depends(get_request_context)],
+    ctx: Annotated[RequestContext, Depends(require_workspace_access())],
     orchestrator: Annotated[SessionOrchestrator, Depends(get_orchestrator)],
+    agent_service: Annotated[AgentRegistryService, Depends(get_agent_service)],
+    audit_store: Annotated[PostgresAuditStore, Depends(get_audit_store)],
+    metering: Annotated[UsageMeteringService, Depends(get_usage_metering_service)],
+    hitl: Annotated[HITLService, Depends(get_hitl_service)],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
 ):
-    ctx.require_authenticated()
+    user_id = ctx.require_authenticated()
     try:
-        session_ctx, response = await orchestrator.query(session_id, body.question)
+        session_ctx, response = await orchestrator.query(session_id, body.question, caller_id=user_id)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     if session_ctx.workspace_id != workspace_id:
         raise HTTPException(status_code=403, detail="Session workspace mismatch")
+
+    review_id = None
+    answer_text = response.answer
+    citations_out = [CitationResponse(**c) for c in response.citations]
+    withheld = response.withheld
+
+    version = await agent_service.get_active_agent(session_ctx.agent_id, workspace_id)
+    if version and hitl.should_enqueue(response, version.config):
+        review_id = await hitl.enqueue(
+            workspace_id=workspace_id,
+            session_id=session_id,
+            requester_id=user_id,
+            question=body.question,
+            response=response,
+            trace_id=ctx.trace_id,
+        )
+        compliance = version.config.get("compliance_policy", {})
+        if compliance.get("block_until_review", True):
+            answer_text = (
+                "This answer requires advisor review before release. "
+                "It has been queued for compliance sign-off."
+            )
+            citations_out = []
+            withheld = True
+
+    await append_audit(
+        audit_store,
+        trace_id=ctx.trace_id,
+        actor_id=user_id,
+        tenant_id=ctx.tenant_id,
+        workspace_id=workspace_id,
+        action="session.query.completed",
+        resource_type="session",
+        resource_id=str(session_id),
+        details={
+            "question_length": len(body.question),
+            "withheld": response.withheld,
+            "trust_overall": response.trust.overall,
+            "citation_count": len(response.citations),
+            "review_enqueued": review_id is not None,
+        },
+    )
+    await metering.record(
+        workspace_id=workspace_id,
+        event_type="session.query",
+        units=1,
+        actor_id=user_id,
+        metadata={
+            "session_id": str(session_id),
+            "withheld": response.withheld,
+            "trust_overall": response.trust.overall,
+        },
+    )
+    await session.commit()
 
     trust_response = None
     if response.show_trust_vector:
@@ -218,12 +308,11 @@ async def query_session(
         )
 
     return QueryResponse(
-        answer=response.answer,
-        withheld=response.withheld,
+        answer=answer_text,
+        withheld=withheld,
         trust=trust_response,
-        citations=[
-            CitationResponse(**c) for c in response.citations
-        ],
+        citations=citations_out,
         evidence_count=len(response.evidence_packets),
         session_id=session_id,
+        review_id=review_id,
     )

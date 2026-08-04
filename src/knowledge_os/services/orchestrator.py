@@ -23,20 +23,26 @@ class SessionOrchestrator:
         self._agent_repo = agent_repo
         self._pipeline = query_pipeline
 
-    async def create_session(self, workspace_id: UUID, agent_id: str) -> SessionContext:
+    async def create_session(
+        self, workspace_id: UUID, agent_id: str, user_id: UUID | None = None
+    ) -> SessionContext:
         version = await self._agent_repo.get_active_version(agent_id, workspace_id)
         if version is None:
             raise ValueError(f"No active agent '{agent_id}' in workspace")
-        return await self._sessions.create(workspace_id, agent_id)
+        return await self._sessions.create(workspace_id, agent_id, user_id=user_id)
 
     async def query(
         self,
         session_id: UUID,
         question: str,
+        caller_id: UUID | None = None,
     ) -> tuple[SessionContext, CitedResponse]:
         ctx = await self._sessions.get(session_id)
         if ctx is None:
             raise ValueError("Session not found")
+
+        if caller_id is not None and ctx.user_id is not None and ctx.user_id != caller_id:
+            raise PermissionError("Session does not belong to this user")
 
         version = await self._agent_repo.get_active_version(ctx.agent_id, ctx.workspace_id)
         if version is None:

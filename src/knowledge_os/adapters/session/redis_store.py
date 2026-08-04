@@ -13,6 +13,7 @@ class SessionContext:
     session_id: UUID
     workspace_id: UUID
     agent_id: str
+    user_id: UUID | None = None
     messages: list[dict[str, str]] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -32,13 +33,18 @@ class RedisSessionStore:
         return f"kos:session:{session_id}"
 
     async def create(
-        self, workspace_id: UUID, agent_id: str, metadata: dict | None = None
+        self,
+        workspace_id: UUID,
+        agent_id: str,
+        user_id: UUID | None = None,
+        metadata: dict | None = None,
     ) -> SessionContext:
         session_id = uuid4()
         ctx = SessionContext(
             session_id=session_id,
             workspace_id=workspace_id,
             agent_id=agent_id,
+            user_id=user_id,
             metadata=metadata or {},
         )
         await self.save(ctx)
@@ -50,10 +56,12 @@ class RedisSessionStore:
         if not raw:
             return None
         data = json.loads(raw)
+        user_raw = data.get("user_id")
         return SessionContext(
             session_id=UUID(data["session_id"]),
             workspace_id=UUID(data["workspace_id"]),
             agent_id=data["agent_id"],
+            user_id=UUID(user_raw) if user_raw else None,
             messages=data.get("messages", []),
             metadata=data.get("metadata", {}),
         )
@@ -65,6 +73,7 @@ class RedisSessionStore:
                 "session_id": str(ctx.session_id),
                 "workspace_id": str(ctx.workspace_id),
                 "agent_id": ctx.agent_id,
+                "user_id": str(ctx.user_id) if ctx.user_id else None,
                 "messages": ctx.messages,
                 "metadata": ctx.metadata,
             }

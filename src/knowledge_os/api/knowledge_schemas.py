@@ -84,3 +84,32 @@ class QueryResponse(APIModel):
     citations: list[CitationResponse]
     evidence_count: int
     session_id: UUID
+    review_id: UUID | None = None
+
+
+class ReviewActionRequest(BaseModel):
+    status: str = Field(pattern="^(approved|rejected)$")
+    notes: str | None = None
+
+
+class ReviewQueueItemResponse(APIModel):
+    id: UUID
+    workspace_id: UUID
+    session_id: UUID
+    requester_id: UUID
+    question: str
+    proposed_answer: str
+    trust_snapshot: dict[str, Any]
+    citations: list[Any]
+    status: str
+    reviewer_id: UUID | None
+    reviewer_notes: str | None
+    trace_id: str
+    created_at: datetime
+    reviewed_at: datetime | None
+
+
+class UsageSummaryResponse(APIModel):
+    workspace_id: UUID
+    event_type: str | None
+    total_units: int

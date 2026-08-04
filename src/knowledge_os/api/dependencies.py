@@ -29,11 +29,14 @@ from knowledge_os.config import get_settings
 from knowledge_os.ports.llm import LLMGateway
 from knowledge_os.ports.repositories import EventBus
 from knowledge_os.schemas.agent_validator import AgentSchemaValidator
+from knowledge_os.services.authorization import AuthorizationService, WORKSPACE_MEMBER_ROLES
 from knowledge_os.services.credentials import CredentialService
+from knowledge_os.services.hitl import HITLService
 from knowledge_os.services.ingestion import IngestionService
 from knowledge_os.services.orchestrator import SessionOrchestrator
 from knowledge_os.services.platform import AgentRegistryService, TenantService
 from knowledge_os.services.query_pipeline import QueryPipeline
+from knowledge_os.services.usage_metering import UsageMeteringService
 
 _auth_provider = JWTAuthProvider()
 _event_bus: EventBus | None = None
@@ -112,6 +115,47 @@ def require_roles(*required_roles: str):
         return ctx
 
     return checker
+
+
+def require_workspace_access(*allowed_roles: str):
+    """Enforce DB-backed workspace membership (production-strict)."""
+
+    roles = allowed_roles or WORKSPACE_MEMBER_ROLES
+
+    async def checker(
+        workspace_id: UUID,
+        ctx: Annotated[RequestContext, Depends(get_request_context)],
+        session: Annotated[AsyncSession, Depends(get_db_session)],
+    ) -> RequestContext:
+        user_id = ctx.require_authenticated()
+        auth = AuthorizationService(PostgresTenantRepository(session))
+        await auth.assert_workspace_access(
+            workspace_id,
+            user_id,
+            allowed_roles=tuple(roles),
+            jwt_roles=ctx.roles,
+        )
+        return ctx
+
+    return checker
+
+
+async def get_authorization_service(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> AuthorizationService:
+    return AuthorizationService(PostgresTenantRepository(session))
+
+
+async def get_hitl_service(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> HITLService:
+    return HITLService(session)
+
+
+async def get_usage_metering_service(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> UsageMeteringService:
+    return UsageMeteringService(session)
 
 
 async def get_tenant_service(
