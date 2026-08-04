@@ -3,283 +3,138 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Knowledge OS — UPSC Mentor</title>
-  <style>
-    :root {
-      --bg: #0f1419;
-      --surface: #1a2332;
-      --border: #2d3a4d;
-      --text: #e7ecf3;
-      --muted: #8b9cb3;
-      --accent: #3b82f6;
-      --success: #22c55e;
-      --warn: #f59e0b;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: system-ui, -apple-system, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-    header {
-      padding: 1rem 1.5rem;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    header h1 { font-size: 1.1rem; font-weight: 600; }
-    header span { color: var(--muted); font-size: 0.85rem; }
-    main {
-      flex: 1;
-      display: grid;
-      grid-template-columns: 320px 1fr;
-      max-width: 1200px;
-      width: 100%;
-      margin: 0 auto;
-      height: calc(100vh - 57px);
-    }
-    .sidebar {
-      border-right: 1px solid var(--border);
-      padding: 1rem;
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-      overflow-y: auto;
-    }
-    .chat {
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-    }
-    .messages {
-      flex: 1;
-      overflow-y: auto;
-      padding: 1rem 1.5rem;
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
-    .msg {
-      max-width: 85%;
-      padding: 0.75rem 1rem;
-      border-radius: 12px;
-      line-height: 1.5;
-      font-size: 0.95rem;
-    }
-    .msg.user {
-      align-self: flex-end;
-      background: var(--accent);
-      color: white;
-    }
-    .msg.assistant {
-      align-self: flex-start;
-      background: var(--surface);
-      border: 1px solid var(--border);
-    }
-    .citations {
-      margin-top: 0.75rem;
-      padding-top: 0.75rem;
-      border-top: 1px solid var(--border);
-      font-size: 0.8rem;
-      color: var(--muted);
-    }
-    .citation {
-      margin-top: 0.35rem;
-      padding: 0.35rem 0.5rem;
-      background: var(--bg);
-      border-radius: 6px;
-    }
-    .trust-badge {
-      display: inline-block;
-      margin-top: 0.5rem;
-      padding: 0.2rem 0.5rem;
-      border-radius: 4px;
-      font-size: 0.75rem;
-      font-weight: 600;
-    }
-    .trust-ok { background: #14532d; color: var(--success); }
-    .trust-low { background: #451a03; color: var(--warn); }
-    .input-area {
-      padding: 1rem 1.5rem;
-      border-top: 1px solid var(--border);
-      display: flex;
-      gap: 0.5rem;
-    }
-    input, button, select {
-      font: inherit;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      color: var(--text);
-      padding: 0.6rem 0.75rem;
-    }
-    input { flex: 1; }
-    button {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: white;
-      cursor: pointer;
-      font-weight: 500;
-    }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    label { font-size: 0.8rem; color: var(--muted); display: block; margin-bottom: 0.25rem; }
-    .field { display: flex; flex-direction: column; gap: 0.25rem; }
-    .assets { font-size: 0.85rem; }
-    .asset-item {
-      padding: 0.5rem;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      margin-bottom: 0.35rem;
-    }
-    .status-ready { color: var(--success); }
-    .status-processing { color: var(--warn); }
-    h2 { font-size: 0.9rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
-  </style>
+  <meta name="description" content="Knowledge OS — Trustworthy AI mentor with cited answers from your documents." />
+  <title>Knowledge OS · Mentor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/app.css" />
 </head>
 <body>
-  <header>
-    <h1>Knowledge OS <span>— UPSC Mentor</span></h1>
-    <span id="status">Not connected</span>
-  </header>
-  <main>
-    <aside class="sidebar">
-      <div class="field">
-        <label>API Base URL</label>
-        <input id="apiBase" value="/api/v1" />
+  <div class="ambient" aria-hidden="true"></div>
+
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="brand">
+        <button type="button" class="mobile-toggle" id="mobileToggle" aria-label="Open sidebar">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+        </button>
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        </div>
+        <div class="brand-text">
+          <h1>Knowledge OS</h1>
+          <p>UPSC Mentor · Evidence-grounded answers</p>
+        </div>
       </div>
-      <div class="field">
-        <label>Workspace ID</label>
-        <input id="workspaceId" placeholder="uuid" />
+      <div class="session-pill" id="sessionPill">
+        <span class="session-dot" id="sessionDot"></span>
+        <span id="sessionLabel">Not connected</span>
       </div>
-      <div class="field">
-        <label>Bearer Token</label>
-        <input id="token" type="password" placeholder="JWT token" />
-      </div>
-      <div class="field">
-        <label>Agent ID</label>
-        <input id="agentId" value="upsc-mentor-v1" />
-      </div>
-      <button id="connectBtn">Connect Session</button>
-      <hr style="border-color: var(--border)" />
-      <h2>Upload Knowledge</h2>
-      <input type="file" id="fileInput" accept=".pdf,.txt,.md" />
-      <button id="uploadBtn">Upload</button>
-      <h2>Documents</h2>
-      <div class="assets" id="assets"></div>
-    </aside>
-    <section class="chat">
-      <div class="messages" id="messages"></div>
-      <div class="input-area">
-        <input id="question" placeholder="Ask a question about your uploaded documents..." />
-        <button id="askBtn" disabled>Ask</button>
-      </div>
-    </section>
-  </main>
-  <script>
-    let sessionId = null;
-    const $ = (id) => document.getElementById(id);
+    </header>
 
-    function headers() {
-      const h = { "Content-Type": "application/json" };
-      const t = $("token").value.trim();
-      if (t) h["Authorization"] = `Bearer ${t}`;
-      return h;
-    }
+    <div class="app-main">
+      <aside class="sidebar" id="sidebar">
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Workspace</span>
+          </div>
+          <div class="field">
+            <label for="workspaceId">Workspace ID</label>
+            <input id="workspaceId" class="input-mono" type="text" placeholder="00000000-0000-0000-0000-000000000000" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label for="agentId">Agent</label>
+            <input id="agentId" type="text" value="upsc-mentor-v1" />
+          </div>
+          <div class="field">
+            <label for="token">Access token</label>
+            <input id="token" type="password" placeholder="Paste JWT bearer token" autocomplete="off" />
+            <span class="field-hint">Dev: issue via /api/v1/auth/dev-token</span>
+          </div>
+          <button type="button" class="btn btn-primary btn-block" id="connectBtn">Connect</button>
+        </div>
 
-    function api(path) {
-      return `${$("apiBase").value.replace(/\/$/, "")}${path}`;
-    }
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Knowledge</span>
+          </div>
+          <div class="upload-zone" id="uploadZone" role="button" tabindex="0" aria-label="Upload document">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <p>Drop PDF or text here</p>
+            <span>PDF, TXT, MD · max 50MB</span>
+            <input type="file" id="fileInput" accept=".pdf,.txt,.md" />
+          </div>
+          <button type="button" class="btn btn-ghost btn-block btn-sm" id="uploadBtn" style="margin-top: 0.75rem">Upload selected file</button>
+        </div>
 
-    function addMessage(role, content, meta = {}) {
-      const div = document.createElement("div");
-      div.className = `msg ${role}`;
-      div.innerHTML = content;
-      if (meta.trust) {
-        const badge = document.createElement("div");
-        badge.className = `trust-badge ${meta.trust.threshold_met ? "trust-ok" : "trust-low"}`;
-        badge.textContent = `Trust: ${(meta.trust.overall * 100).toFixed(0)}% — ${meta.trust.explanation}`;
-        div.appendChild(badge);
-      }
-      if (meta.citations?.length) {
-        const cit = document.createElement("div");
-        cit.className = "citations";
-        cit.innerHTML = "<strong>Sources:</strong>";
-        meta.citations.forEach((c) => {
-          const item = document.createElement("div");
-          item.className = "citation";
-          item.textContent = `[${c.chunk_id.slice(0, 8)}…] p.${c.page || "?"} — ${c.text_excerpt}`;
-          cit.appendChild(item);
-        });
-        div.appendChild(cit);
-      }
-      $("messages").appendChild(div);
-      $("messages").scrollTop = $("messages").scrollHeight;
-    }
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Your documents</span>
+          </div>
+          <div class="doc-list" id="docList">
+            <div class="empty-docs">Connect to see your library.</div>
+          </div>
+        </div>
 
-    async function loadAssets() {
-      const ws = $("workspaceId").value.trim();
-      if (!ws) return;
-      const res = await fetch(api(`/workspaces/${ws}/knowledge/assets`), { headers: headers() });
-      if (!res.ok) return;
-      const assets = await res.json();
-      $("assets").innerHTML = assets.length
-        ? assets.map((a) => `<div class="asset-item"><strong>${a.filename}</strong><br><span class="status-${a.status}">${a.status}</span></div>`).join("")
-        : "<em>No documents yet</em>";
-    }
+        <div class="panel">
+          <button type="button" class="accordion-toggle" id="advancedToggle" aria-expanded="false">
+            Developer settings
+            <span aria-hidden="true">▸</span>
+          </button>
+          <div class="accordion-body" id="advancedBody">
+            <div class="field">
+              <label for="apiBase">API base URL</label>
+              <input id="apiBase" type="text" value="/api/v1" class="input-mono" />
+            </div>
+          </div>
+        </div>
+      </aside>
 
-    $("connectBtn").onclick = async () => {
-      const ws = $("workspaceId").value.trim();
-      const agent = $("agentId").value.trim();
-      const res = await fetch(api(`/workspaces/${ws}/sessions`), {
-        method: "POST",
-        headers: headers(),
-        body: JSON.stringify({ agent_id: agent }),
-      });
-      if (!res.ok) { alert("Connect failed: " + await res.text()); return; }
-      const data = await res.json();
-      sessionId = data.session_id;
-      $("status").textContent = `Session ${sessionId.slice(0, 8)}…`;
-      $("askBtn").disabled = false;
-      await loadAssets();
-    };
+      <section class="chat-area" aria-label="Chat">
+        <div class="messages" id="messages">
+          <div class="welcome-state" id="welcomeState">
+            <div class="welcome-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/>
+                <path d="M5 19h14"/>
+              </svg>
+            </div>
+            <h2>Ask with evidence</h2>
+            <p>Upload your study material, connect your workspace, and get answers grounded in your documents—with citations and trust scores.</p>
+            <div class="suggestion-chips">
+              <button type="button" class="chip" data-q="How is the President of India elected?">President election</button>
+              <button type="button" class="chip" data-q="Explain Article 54 in simple terms.">Article 54</button>
+              <button type="button" class="chip" data-q="Summarize the key points from my uploaded documents.">Summarize docs</button>
+            </div>
+          </div>
+        </div>
 
-    $("uploadBtn").onclick = async () => {
-      const ws = $("workspaceId").value.trim();
-      const file = $("fileInput").files[0];
-      if (!file) return alert("Select a file");
-      const fd = new FormData();
-      fd.append("file", file);
-      fd.append("agent_id", $("agentId").value.trim());
-      const h = {};
-      const t = $("token").value.trim();
-      if (t) h["Authorization"] = `Bearer ${t}`;
-      const res = await fetch(api(`/workspaces/${ws}/knowledge/upload`), { method: "POST", headers: h, body: fd });
-      if (!res.ok) { alert("Upload failed: " + await res.text()); return; }
-      await loadAssets();
-      addMessage("assistant", `Uploaded <strong>${file.name}</strong> — indexing complete.`);
-    };
+        <div class="composer">
+          <div class="composer-inner">
+            <textarea
+              id="question"
+              rows="1"
+              placeholder="Ask about your knowledge base…"
+              aria-label="Your question"
+              disabled
+            ></textarea>
+            <button type="button" class="btn btn-primary" id="askBtn" disabled aria-label="Send question">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+            </button>
+          </div>
+          <p class="composer-hint">Enter to send · Shift+Enter for new line</p>
+        </div>
+      </section>
+    </div>
+  </div>
 
-    $("askBtn").onclick = async () => {
-      const q = $("question").value.trim();
-      if (!q || !sessionId) return;
-      const ws = $("workspaceId").value.trim();
-      addMessage("user", q);
-      $("question").value = "";
-      $("askBtn").disabled = true;
-      const res = await fetch(api(`/workspaces/${ws}/sessions/${sessionId}/query`), {
-        method: "POST",
-        headers: headers(),
-        body: JSON.stringify({ question: q }),
-      });
-      $("askBtn").disabled = false;
-      if (!res.ok) { addMessage("assistant", "Error: " + await res.text()); return; }
-      const data = await res.json();
-      addMessage("assistant", data.answer.replace(/\n/g, "<br>"), { trust: data.trust, citations: data.citations });
-    };
-  </script>
+  <div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+  <script src="js/app.js" defer></script>
 </body>
 </html>
