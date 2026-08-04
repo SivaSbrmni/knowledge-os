@@ -1,0 +1,57 @@
+---
+description: Premium UI/UX standards for all Knowledge OS interface work. Apply whenever creating or modifying web UI, components, or user-facing flows.
+globs:
+  - web/**
+  - "**/*.html"
+  - "**/*.css"
+  - "**/components/**"
+alwaysApply: false
+---
+
+# Knowledge OS — UI/UX Standards
+
+All UI work must be crafted as if led by a senior product designer + UX researcher. Never ship utilitarian "dev tool" interfaces for user-facing surfaces.
+
+## Principles
+
+1. **Clarity first** — One primary action per view; progressive disclosure for advanced/dev settings.
+2. **Trust is visible** — Citations, trust scores, and withheld states must be legible and calm, not alarming unless necessary.
+3. **Feedback everywhere** — Loading, success, error, empty states; never silent failures or native `alert()`.
+4. **Premium craft** — Typography hierarchy, 8px spacing grid, consistent radii, subtle depth, restrained motion.
+5. **Accessible** — Focus rings, `aria-*`, keyboard nav (Enter to submit, Esc to close), `prefers-reduced-motion`.
+
+## Visual system (default)
+
+- **Type**: Plus Jakarta Sans (UI), JetBrains Mono (IDs, code, metrics)
+- **Surfaces**: Layered dark base (#09090b) + glass panels (rgba white 4–8% borders)
+- **Accent**: Warm gold `#d4a853` for primary actions; teal `#5eead4` for trust/success signals
+- **Radius**: 12px cards, 10px inputs, 20px message bubbles
+- **Motion**: 150–250ms ease; fade/slide only; no gratuitous animation
+
+## Required patterns
+
+| Pattern | Requirement |
+|---------|-------------|
+| Empty state | Illustration/icon + headline + one-line guidance + CTA |
+| Forms | Labels, helper text, validation inline |
+| Upload | Drag-and-drop zone + file type hints + progress |
+| Chat | Distinct user/assistant bubbles, timestamps optional, typing/loading indicator |
+| Citations | Expandable cards with page, excerpt, confidence |
+| Trust | Visual meter (bar or ring) + threshold explanation |
+| Errors | Toast or inline banner; actionable message |
+| Dev settings | Collapsed behind "Advanced" / "Developer" accordion |
+
+## Anti-patterns (never)
+
+- Raw UUID fields front-and-center without copy buttons or masking
+- Browser `alert()` / `confirm()` for primary flows
+- Unstyled file inputs
+- Wall of form fields before first value moment
+- Generic Bootstrap-blue-on-white unless explicitly requested
+
+## Before shipping UI changes
+
+- [ ] Mobile breakpoint (≤768px) tested
+- [ ] Empty, loading, error states present
+- [ ] Keyboard and focus usable without mouse
+- [ ] No layout shift on load
