@@ -209,6 +209,7 @@ async def get_orchestrator(
     pipeline = QueryPipeline(
         provider=provider,
         llm_gateway=llm_gateway if not settings.use_dev_embeddings else None,
+        event_bus=get_event_bus(),
     )
     session_store = RedisSessionStore(settings.redis_url)
     return SessionOrchestrator(
