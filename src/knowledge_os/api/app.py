@@ -35,6 +35,12 @@ def create_app() -> FastAPI:
     if web_dir.exists():
         app.mount("/ui", StaticFiles(directory=str(web_dir), html=True), name="web")
 
+        from fastapi.responses import RedirectResponse
+
+        @app.get("/", include_in_schema=False)
+        async def root_redirect():
+            return RedirectResponse(url="/ui/")
+
     @app.get("/health", tags=["system"])
     async def health():
         return {
