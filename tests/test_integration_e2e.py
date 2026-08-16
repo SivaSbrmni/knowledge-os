@@ -67,6 +67,7 @@ async def test_full_platform_flow(client: AsyncClient):
     )
     agent_config["tenant_id"] = org_id
     agent_config["workspace_id"] = workspace_id
+    agent_config.setdefault("reasoning_policy", {})["min_evidence_packets"] = 1
 
     agent_resp = await client.post(
         f"/api/v1/workspaces/{workspace_id}/agents",

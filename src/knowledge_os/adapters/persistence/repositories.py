@@ -144,6 +144,24 @@ class PostgresTenantRepository(TenantRepository):
         result = await self._session.scalar(stmt)
         return _to_user(result) if result else None
 
+    async def ensure_user(
+        self, user_id: UUID, email: str, display_name: str | None = None
+    ) -> User:
+        existing = await self.get_user(user_id)
+        if existing is not None:
+            return existing
+        by_email = await self.get_user_by_email(email)
+        if by_email is not None:
+            return by_email
+        model = UserModel(
+            id=user_id,
+            email=email,
+            display_name=display_name or email.split("@")[0],
+        )
+        self._session.add(model)
+        await self._session.flush()
+        return _to_user(model)
+
     async def add_workspace_member(
         self, workspace_id: UUID, user_id: UUID, role: str
     ) -> WorkspaceMembership:

@@ -11,22 +11,35 @@ from knowledge_os.adapters.persistence.database import get_engine
 from knowledge_os.api.compliance_routes import compliance_router
 from knowledge_os.api.knowledge_routes import chat_router, knowledge_router
 from knowledge_os.api.middleware import RateLimitMiddleware, TraceContextMiddleware
+from knowledge_os.api.security_middleware import SecurityHeadersMiddleware
 from knowledge_os.api.routes import router
 from knowledge_os.config import get_settings
+from knowledge_os.services.production_validation import validate_production_settings
 
 logger = structlog.get_logger()
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    config_errors = validate_production_settings(settings)
+    if config_errors:
+        for err in config_errors:
+            logger.error("production_config_invalid", detail=err)
+        if settings.is_production:
+            raise RuntimeError(
+                "Invalid production configuration: " + "; ".join(config_errors)
+            )
+
     app = FastAPI(
         title="Knowledge OS",
         description="Knowledge Operating System — Phase 1: Upload → Ask → Cite",
         version=__version__,
-        docs_url="/docs",
-        redoc_url="/redoc",
+        docs_url="/docs" if not settings.is_production else None,
+        redoc_url="/redoc" if not settings.is_production else None,
+        openapi_url="/openapi.json" if not settings.is_production else None,
     )
 
+    app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(RateLimitMiddleware)
     app.add_middleware(TraceContextMiddleware)
     app.include_router(router, prefix="/api/v1")
@@ -53,11 +66,14 @@ def create_app() -> FastAPI:
 
     @app.get("/health", tags=["system"])
     async def health():
-        return {
+        payload = {
             "status": "healthy",
             "version": __version__,
             "environment": settings.environment,
         }
+        if settings.is_production:
+            payload["production_validated"] = True
+        return payload
 
     @app.get("/ready", tags=["system"])
     async def ready():

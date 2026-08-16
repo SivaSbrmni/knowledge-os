@@ -88,7 +88,12 @@ class AuthorizationService:
         if session_user_id == caller_id:
             return
         settings = get_settings()
-        if not settings.is_production and Role.PLATFORM_ADMIN.value in jwt_roles:
+        if settings.is_production:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Session does not belong to this user",
+            )
+        if settings.is_development and Role.PLATFORM_ADMIN.value in jwt_roles:
             return
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

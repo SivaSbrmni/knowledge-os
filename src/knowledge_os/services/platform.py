@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from knowledge_os.domain.enums import EventTopic, Role
-from knowledge_os.domain.models import AuditRecord, PlatformEvent
+from knowledge_os.domain.models import AuditRecord, PlatformEvent, User
 from knowledge_os.domain.utils import hash_payload, new_trace_id
 from knowledge_os.ports.repositories import (
     AgentRepository,
@@ -130,6 +130,14 @@ class TenantService:
             payload={"workspace_id": str(workspace.id), "slug": slug},
         )
         return workspace
+
+    async def ensure_user(
+        self,
+        user_id: UUID,
+        email: str,
+        display_name: str | None = None,
+    ) -> User:
+        return await self._tenant_repo.ensure_user(user_id, email, display_name)
 
     async def register_user(
         self,

@@ -51,11 +51,15 @@ router = APIRouter()
 @router.post("/auth/dev-token", response_model=DevTokenResponse)
 async def issue_dev_token(
     body: DevTokenRequest,
+    service: Annotated[TenantService, Depends(get_tenant_service)],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
     auth=Depends(get_auth_provider),
 ):
     settings = get_settings()
     if not settings.is_development:
         raise HTTPException(status_code=404, detail="Not found")
+    await service.ensure_user(body.user_id, body.email)
+    await session.commit()
     token = await auth.issue_dev_token(body.user_id, body.email, body.roles)
     return DevTokenResponse(access_token=token)
 

@@ -21,6 +21,14 @@ async def run() -> int:
     passed: list[str] = []
     suffix = uuid4().hex[:8]
 
+    import subprocess
+
+    subprocess.run(
+        [sys.executable, str(Path(__file__).parent / "ensure_platform_workspace.py")],
+        check=True,
+        capture_output=True,
+    )
+
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://verify") as client:
         # Health

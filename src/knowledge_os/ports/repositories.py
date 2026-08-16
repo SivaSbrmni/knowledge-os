@@ -53,6 +53,12 @@ class TenantRepository(ABC):
         pass
 
     @abstractmethod
+    async def ensure_user(
+        self, user_id: UUID, email: str, display_name: str | None = None
+    ) -> User:
+        pass
+
+    @abstractmethod
     async def add_workspace_member(
         self, workspace_id: UUID, user_id: UUID, role: str
     ) -> WorkspaceMembership:
