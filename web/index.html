@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Knowledge OS — Evidence-grounded portfolio intelligence for wealth managers." />
+  <title>Knowledge OS · Portfolio Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+  <div class="ambient" aria-hidden="true"></div>
+
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="brand">
+        <button type="button" class="mobile-toggle" id="mobileToggle" aria-label="Open sidebar">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+        </button>
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        </div>
+        <div class="brand-text">
+          <h1>Knowledge OS</h1>
+          <p>Portfolio Intelligence · Cited, auditable answers</p>
+        </div>
+      </div>
+      <div class="session-pill" id="sessionPill">
+        <span class="session-dot" id="sessionDot"></span>
+        <span id="sessionLabel">Not connected</span>
+      </div>
+    </header>
+
+    <div class="app-main">
+      <aside class="sidebar" id="sidebar">
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Client workspace</span>
+          </div>
+          <div class="field">
+            <label for="agentId">Advisor agent</label>
+            <input id="agentId" type="text" value="upsc-mentor-v1" placeholder="upsc-mentor-v1" />
+          </div>
+          <button type="button" class="btn btn-primary btn-block" id="connectBtn">Start advisory session</button>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Document library</span>
+          </div>
+          <div class="upload-zone" id="uploadZone" role="button" tabindex="0" aria-label="Upload document">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <p>Drop client documents here</p>
+            <span>PDF, TXT, MD · max 50MB</span>
+            <input type="file" id="fileInput" accept=".pdf,.txt,.md" />
+          </div>
+          <div class="upload-progress hidden" id="uploadProgress" aria-live="polite">
+            <div class="upload-progress-bar" id="uploadProgressBar"></div>
+            <span class="upload-progress-label" id="uploadProgressLabel">Uploading…</span>
+          </div>
+          <button type="button" class="btn btn-ghost btn-block btn-sm" id="uploadBtn" style="margin-top: 0.75rem">Upload selected file</button>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Indexed documents</span>
+          </div>
+          <div class="doc-list" id="docList">
+            <div class="empty-docs">Connect to view the document library.</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <button type="button" class="accordion-toggle" id="advancedToggle" aria-expanded="false">
+            Workspace &amp; access
+            <span aria-hidden="true">▸</span>
+          </button>
+          <div class="accordion-body" id="advancedBody">
+            <div class="field">
+              <label for="workspaceId">Workspace ID</label>
+              <input id="workspaceId" class="input-mono" type="text" placeholder="Client workspace UUID" autocomplete="off" />
+            </div>
+            <div class="field">
+              <label for="token">Access token</label>
+              <input id="token" type="password" placeholder="Bearer token" autocomplete="off" />
+            </div>
+            <div class="field">
+              <label for="apiBase">API base URL</label>
+              <input id="apiBase" type="text" value="/api/v1" class="input-mono" />
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <section class="chat-area" aria-label="Advisory chat">
+        <div class="messages" id="messages">
+          <div class="welcome-state" id="welcomeState">
+            <div class="welcome-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/>
+                <path d="M5 19h14"/>
+              </svg>
+            </div>
+            <h2>Evidence-backed portfolio insights</h2>
+            <p>Upload client statements, policy documents, and research. Every answer cites source material with a confidence score suitable for wealth advisory workflows.</p>
+            <div class="suggestion-chips">
+              <button type="button" class="chip" data-q="Summarize risk exposure across uploaded portfolio documents.">Risk exposure summary</button>
+              <button type="button" class="chip" data-q="What compliance considerations apply to this client's allocation?">Compliance check</button>
+              <button type="button" class="chip" data-q="List key holdings and concentrations from uploaded statements.">Holdings overview</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="composer">
+          <div class="composer-inner">
+            <textarea
+              id="question"
+              rows="1"
+              placeholder="Ask about client documents or portfolio policy…"
+              aria-label="Your question"
+              disabled
+            ></textarea>
+            <button type="button" class="btn btn-primary" id="askBtn" disabled aria-label="Send question">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+            </button>
+          </div>
+          <p class="composer-hint">Enter to send · Shift+Enter for new line</p>
+        </div>
+
+        <footer class="compliance-footer" role="contentinfo">
+          <p>
+            <strong>Advisory disclaimer:</strong> Responses are generated from uploaded documents and do not constitute investment advice.
+            Verify all material facts against primary sources. Low-confidence answers may be withheld pending human review.
+          </p>
+        </footer>
+      </section>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+  <script src="js/app.js" defer></script>
+</body>
+</html>
